@@ -1,0 +1,1002 @@
+// FILE: README.md
+# Students Management System
+
+A full-stack JavaScript application for managing student records with a Node.js/Express backend and React frontend.
+
+## Features
+
+- ✅ Create, Read, Update, Delete (CRUD) operations for students
+- ✅ PostgreSQL database integration
+- ✅ Modern React frontend with responsive design
+- ✅ RESTful API endpoints
+- ✅ Form validation and error handling
+- ✅ Real-time data updates
+- ✅ Mobile-responsive design
+
+## Tech Stack
+
+### Backend
+- **Node.js** - JavaScript runtime
+- **Express.js** - Web framework
+- **PostgreSQL** - Database
+- **pg** - PostgreSQL client for Node.js
+- **CORS** - Cross-origin resource sharing
+
+### Frontend
+- **React** - JavaScript library for building user interfaces
+- **Axios** - HTTP client for API calls
+- **CSS3** - Styling with modern CSS features
+
+## Project Structure
+
+```
+students-app/
+├── server.js              # Express server
+├── package.json           # Backend dependencies
+├── database.sql           # Database setup script
+├── frontend/              # React application
+│   ├── public/
+│   │   └── index.html
+│   ├── src/
+│   │   ├── App.js         # Main React component
+│   │   ├── App.css        # Component styles
+│   │   ├── index.js       # React entry point
+│   │   └── index.css      # Global styles
+│   └── package.json       # Frontend dependencies
+└── README.md              # This file
+```
+
+## Prerequisites
+
+- Node.js (v14 or higher)
+- PostgreSQL (v12 or higher)
+- npm or yarn package manager
+
+## Installation & Setup
+
+### 1. Database Setup
+
+1. **Install PostgreSQL** if you haven't already
+2. **Create a database** for the application
+3. **Run the database setup script**:
+
+```sql
+-- Connect to your PostgreSQL database and run:
+\i database.sql
+```
+
+Or copy and paste the contents of `database.sql` into your PostgreSQL client (like DBeaver).
+
+### 2. Backend Setup
+
+1. **Install backend dependencies**:
+```bash
+npm install
+```
+
+2. **Configure database connection**:
+   Edit `server.js` and update the PostgreSQL connection settings:
+   ```javascript
+   const pool = new Pool({
+     user: 'your_username',        // Your PostgreSQL username
+     host: 'localhost',
+     database: 'your_database',    // Your database name
+     password: 'your_password',    // Your PostgreSQL password
+     port: 5432,
+   });
+   ```
+
+3. **Start the backend server**:
+```bash
+npm start
+```
+
+The server will run on `http://localhost:5000`
+
+### 3. Frontend Setup
+
+1. **Navigate to the frontend directory**:
+```bash
+cd frontend
+```
+
+2. **Install frontend dependencies**:
+```bash
+npm install
+```
+
+3. **Start the React development server**:
+```bash
+npm start
+```
+
+The frontend will run on `http://localhost:3000`
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/students` | Get all students |
+| GET | `/api/students/:id` | Get a specific student |
+| POST | `/api/students` | Create a new student |
+| PUT | `/api/students/:id` | Update a student |
+| DELETE | `/api/students/:id` | Delete a student |
+| GET | `/api/health` | Health check endpoint |
+
+## Usage
+
+1. **View Students**: The application loads and displays all students in a table
+2. **Add Student**: Fill out the form and click "Add Student"
+3. **Edit Student**: Click the "Edit" button next to any student to modify their information
+4. **Delete Student**: Click the "Delete" button to remove a student (with confirmation)
+
+## Database Schema
+
+```sql
+CREATE TABLE students (
+    id BIGINT PRIMARY KEY,
+    lastname VARCHAR(50) NOT NULL,
+    firstname VARCHAR(50) NOT NULL,
+    age INTEGER NOT NULL CHECK (age > 0 AND age < 150)
+);
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Database Connection Error**:
+   - Verify PostgreSQL is running
+   - Check connection credentials in `server.js`
+   - Ensure the database exists
+
+2. **Port Already in Use**:
+   - Backend: Change port in `server.js` (line 108)
+   - Frontend: React will automatically suggest an alternative port
+
+3. **CORS Errors**:
+   - Ensure the backend is running on port 5000
+   - Check that CORS is properly configured in `server.js`
+
+4. **Module Not Found Errors**:
+   - Run `npm install` in both root and frontend directories
+   - Clear node_modules and reinstall if needed
+
+### Development Commands
+
+```bash
+# Backend development (with auto-restart)
+npm run dev
+
+# Frontend development
+cd frontend && npm start
+
+# Build frontend for production
+cd frontend && npm run build
+```
+
+## Sample Data
+
+The application comes with sample data:
+- ID: 190765346, Name: sude kaya, Age: 24
+- ID: 202136528, Name: melih demir, Age: 23
+- ID: 210358402, Name: bilge kaya, Age: 22
+- ID: 230975836, Name: ece ozdogan, Age: 20
+- ID: 220218318, Name: betul eroglu, Age: 21
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is open source and available under the [ISC License](LICENSE).
+
+// FILE: server.js
+const express = require('express');
+const cors = require('cors');
+const { Pool } = require('pg');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// PostgreSQL connection configuration
+// Update these values according to your database setup
+const pool = new Pool({
+  user: 'postgres', // Change to your PostgreSQL username
+  host: 'localhost',
+  database: 'your_database_name', // Change to your database name
+  password: 'your_password', // Change to your PostgreSQL password
+  port: 5432,
+});
+
+// Test database connection
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('Database connection error:', err);
+  } else {
+    console.log('Database connected successfully');
+  }
+});
+
+// Get all students
+app.get('/api/students', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM students ORDER BY id');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching students:', err);
+    res.status(500).json({ error: 'Failed to fetch students' });
+  }
+});
+
+// Get a single student by ID
+app.get('/api/students/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT * FROM students WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching student:', err);
+    res.status(500).json({ error: 'Failed to fetch student' });
+  }
+});
+
+// Add a new student
+app.post('/api/students', async (req, res) => {
+  try {
+    const { id, lastname, firstname, age } = req.body;
+    
+    // Validate required fields
+    if (!id || !lastname || !firstname || !age) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+    
+    const result = await pool.query(
+      'INSERT INTO students (id, lastname, firstname, age) VALUES ($1, $2, $3, $4) RETURNING *',
+      [id, lastname, firstname, age]
+    );
+    
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating student:', err);
+    if (err.code === '23505') { // Unique violation
+      res.status(400).json({ error: 'Student with this ID already exists' });
+    } else {
+      res.status(500).json({ error: 'Failed to create student' });
+    }
+  }
+});
+
+// Update a student
+app.put('/api/students/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { lastname, firstname, age } = req.body;
+    
+    // Validate required fields
+    if (!lastname || !firstname || !age) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+    
+    const result = await pool.query(
+      'UPDATE students SET lastname = $1, firstname = $2, age = $3 WHERE id = $4 RETURNING *',
+      [lastname, firstname, age, id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating student:', err);
+    res.status(500).json({ error: 'Failed to update student' });
+  }
+});
+
+// Delete a student
+app.delete('/api/students/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM students WHERE id = $1 RETURNING *', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    
+    res.json({ message: 'Student deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting student:', err);
+    res.status(500).json({ error: 'Failed to delete student' });
+  }
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', message: 'Server is running' });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/api/health`);
+  console.log(`Students API: http://localhost:${PORT}/api/students`);
+}); 
+
+// FILE: database.sql
+-- Students Management System Database Setup
+-- Run this SQL in your PostgreSQL database
+
+-- Create the students table
+CREATE TABLE IF NOT EXISTS students (
+    id BIGINT PRIMARY KEY,
+    lastname VARCHAR(50) NOT NULL,
+    firstname VARCHAR(50) NOT NULL,
+    age INTEGER NOT NULL CHECK (age > 0 AND age < 150)
+);
+
+-- Insert sample data (your original data)
+INSERT INTO students (id, lastname, firstname, age) VALUES
+    (190765346, 'kaya', 'sude', 24),
+    (202136528, 'demir', 'melih', 23),
+    (210358402, 'kaya', 'bilge', 22),
+    (230975836, 'ozdogan', 'ece', 20),
+    (220218318, 'eroglu', 'betul', 21)
+ON CONFLICT (id) DO NOTHING;
+
+-- Create index for better performance
+CREATE INDEX IF NOT EXISTS idx_students_lastname ON students(lastname);
+CREATE INDEX IF NOT EXISTS idx_students_firstname ON students(firstname);
+
+-- Grant permissions (adjust as needed)
+-- GRANT ALL PRIVILEGES ON TABLE students TO your_username;
+-- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO your_username; 
+
+// FILE: package.json
+{
+  "name": "students-app",
+  "version": "1.0.0",
+  "description": "Full-stack JavaScript application for managing students",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["students", "postgresql", "express", "react"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+} 
+
+// FILE: frontend/package.json
+{
+  "name": "students-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.6.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "proxy": "http://localhost:5000"
+} 
+
+// FILE: frontend/src/App.js
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import './App.css';
+
+const API_BASE_URL = 'http://localhost:5000/api';
+
+function App() {
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  
+  const [formData, setFormData] = useState({
+    id: '',
+    lastname: '',
+    firstname: '',
+    age: ''
+  });
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_BASE_URL}/students`);
+      setStudents(response.data);
+      setError('');
+    } catch (err) {
+      setError('Failed to fetch students. Please check if the server is running.');
+      console.error('Error fetching students:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      id: '',
+      lastname: '',
+      firstname: '',
+      age: ''
+    });
+    setEditingId(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      if (editingId) {
+        // Update existing student
+        await axios.put(`${API_BASE_URL}/students/${editingId}`, {
+          lastname: formData.lastname,
+          firstname: formData.firstname,
+          age: parseInt(formData.age)
+        });
+        setSuccess('Student updated successfully!');
+      } else {
+        // Create new student
+        await axios.post(`${API_BASE_URL}/students`, {
+          id: parseInt(formData.id),
+          lastname: formData.lastname,
+          firstname: formData.firstname,
+          age: parseInt(formData.age)
+        });
+        setSuccess('Student added successfully!');
+      }
+      
+      resetForm();
+      fetchStudents();
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || 'An error occurred';
+      setError(errorMessage);
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
+  const handleEdit = (student) => {
+    setFormData({
+      id: student.id.toString(),
+      lastname: student.lastname,
+      firstname: student.firstname,
+      age: student.age.toString()
+    });
+    setEditingId(student.id);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this student?')) {
+      try {
+        await axios.delete(`${API_BASE_URL}/students/${id}`);
+        setSuccess('Student deleted successfully!');
+        fetchStudents();
+        setTimeout(() => setSuccess(''), 3000);
+      } catch (err) {
+        setError('Failed to delete student');
+        setTimeout(() => setError(''), 5000);
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    resetForm();
+  };
+
+  if (loading) {
+    return (
+      <div className="container">
+        <div className="loading">Loading students...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container">
+      <h1 className="header">Students Management System</h1>
+      
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{success}</div>}
+      
+      <div className="form-container">
+        <h2 className="form-title">
+          {editingId ? 'Edit Student' : 'Add New Student'}
+        </h2>
+        
+        <form onSubmit={handleSubmit}>
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="id">ID:</label>
+              <input
+                type="number"
+                id="id"
+                name="id"
+                value={formData.id}
+                onChange={handleInputChange}
+                disabled={editingId !== null}
+                required={editingId === null}
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="lastname">Last Name:</label>
+              <input
+                type="text"
+                id="lastname"
+                name="lastname"
+                value={formData.lastname}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="firstname">First Name:</label>
+              <input
+                type="text"
+                id="firstname"
+                name="firstname"
+                value={formData.firstname}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="age">Age:</label>
+              <input
+                type="number"
+                id="age"
+                name="age"
+                value={formData.age}
+                onChange={handleInputChange}
+                min="1"
+                max="120"
+                required
+              />
+            </div>
+          </div>
+          
+          <div className="action-buttons">
+            <button type="submit" className="btn btn-primary">
+              {editingId ? 'Update Student' : 'Add Student'}
+            </button>
+            {editingId && (
+              <button type="button" className="btn btn-danger" onClick={handleCancel}>
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+      
+      <div className="table-container">
+        {students.length === 0 ? (
+          <div className="empty-state">
+            <h3>No students found</h3>
+            <p>Add your first student using the form above.</p>
+          </div>
+        ) : (
+          <table className="students-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Last Name</th>
+                <th>First Name</th>
+                <th>Age</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {students.map((student) => (
+                <tr key={student.id}>
+                  <td>{student.id}</td>
+                  <td>{student.lastname}</td>
+                  <td>{student.firstname}</td>
+                  <td>{student.age}</td>
+                  <td>
+                    <div className="action-buttons">
+                      <button
+                        className="btn btn-success"
+                        onClick={() => handleEdit(student)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn btn-danger"
+                        onClick={() => handleDelete(student.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default App; 
+
+// FILE: frontend/src/App.css
+/* Additional styles for the App component */
+.App {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+/* Form validation styles */
+.form-group input:invalid {
+  border-color: #dc3545;
+}
+
+.form-group input:invalid:focus {
+  box-shadow: 0 0 0 2px rgba(220,53,69,0.25);
+}
+
+/* Button disabled state */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Table responsive design */
+@media (max-width: 768px) {
+  .students-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  .students-table th,
+  .students-table td {
+    min-width: 100px;
+  }
+  
+  .students-table th:last-child,
+  .students-table td:last-child {
+    min-width: 120px;
+  }
+}
+
+/* Animation for success/error messages */
+.error-message,
+.success-message {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading spinner */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.loading::after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ddd;
+  border-top: 2px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-left: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+} 
+
+// FILE: frontend/src/index.css
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f5f5f5;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #333;
+}
+
+.form-container {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 30px;
+}
+
+.form-title {
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 1.2em;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #555;
+}
+
+.form-group input {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+.btn-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #218838;
+}
+
+.table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.students-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.students-table th,
+.students-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.students-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+}
+
+.students-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.error-message {
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.success-message {
+  color: #155724;
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+  }
+  
+  .students-table {
+    font-size: 14px;
+  }
+  
+  .students-table th,
+  .students-table td {
+    padding: 8px;
+  }
+} 
+
+// FILE: frontend/src/index.js
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import App from './App';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+); 
+
+// FILE: frontend/public/index.html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="Students Management Application"
+    />
+    <title>Students Management App</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html> 
