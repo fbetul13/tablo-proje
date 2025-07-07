@@ -15,7 +15,7 @@ CREATE TABLE Users (
     institution_working VARCHAR(255),
     status VARCHAR(50),
     create_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    change_date TIMESTAMP,
+    change_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP
 );
 
@@ -26,7 +26,7 @@ CREATE TABLE assistants (
     parameters JSONB,
     user_id INTEGER REFERENCES Users(id),
     create_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    change_date TIMESTAMP,
+    change_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     working_place VARCHAR(255),
     default_instructions TEXT,
     data_instructions TEXT,
@@ -61,7 +61,7 @@ CREATE TABLE data_prepare_modules (
     asistan_id INTEGER REFERENCES assistants(asistan_id),
     query TEXT,
     create_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    change_date TIMESTAMP,
+    change_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     working_platform VARCHAR(100),
     query_name VARCHAR(255),
     db_schema TEXT,
