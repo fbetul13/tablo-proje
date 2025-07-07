@@ -3,6 +3,7 @@ from flask_cors import CORS
 import psycopg2
 import psycopg2.extras
 import json
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -96,21 +97,19 @@ def add_user():
     data = request.get_json(force=True) or {}
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute(
-        'INSERT INTO users (role_id, name, surname, password, e_mail, institution_working, status, create_date, change_date, last_login) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
-        (
-            data.get('role_id'),
-            data.get('name'),
-            data.get('surname'),
-            data.get('password'),
-            data.get('e_mail'),
-            data.get('institution_working'),
-            data.get('status'),
-            data.get('create_date'),
-            data.get('change_date'),
-            data.get('last_login')
-        )
-    )
+    fields = ['role_id', 'name', 'surname', 'password', 'e_mail', 'institution_working']
+    values = [data.get(f) for f in fields]
+    sql_fields = ', '.join(fields)
+    sql_placeholders = ', '.join(['%s'] * len(fields))
+    if data.get('create_date'):
+        sql_fields += ', create_date'
+        sql_placeholders += ', %s'
+        values.append(data.get('create_date'))
+    if data.get('change_date'):
+        sql_fields += ', change_date'
+        sql_placeholders += ', %s'
+        values.append(data.get('change_date'))
+    cur.execute(f'INSERT INTO users ({sql_fields}) VALUES ({sql_placeholders})', values)
     conn.commit()
     cur.close()
     conn.close()
@@ -167,18 +166,19 @@ def add_database_info():
     data = request.get_json(force=True) or {}
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute(
-        'INSERT INTO database_info (database_ip, database_port, database_user, database_password, database_type, database_name, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s)',
-        (
-            data.get('database_ip'),
-            data.get('database_port'),
-            data.get('database_user'),
-            data.get('database_password'),
-            data.get('database_type'),
-            data.get('database_name'),
-            data.get('user_id')
-        )
-    )
+    fields = ['database_ip', 'database_port', 'database_user', 'database_password', 'database_type', 'database_name', 'user_id']
+    values = [data.get(f) for f in fields]
+    sql_fields = ', '.join(fields)
+    sql_placeholders = ', '.join(['%s'] * len(fields))
+    if data.get('create_date'):
+        sql_fields += ', create_date'
+        sql_placeholders += ', %s'
+        values.append(data.get('create_date'))
+    if data.get('change_date'):
+        sql_fields += ', change_date'
+        sql_placeholders += ', %s'
+        values.append(data.get('change_date'))
+    cur.execute(f'INSERT INTO database_info ({sql_fields}) VALUES ({sql_placeholders})', values)
     conn.commit()
     cur.close()
     conn.close()
@@ -233,16 +233,23 @@ def add_data_prepare_module():
     data = request.get_json(force=True) or {}
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute(
-        'INSERT INTO data_prepare_modules (module_name, description, user_id, create_date, change_date) VALUES (%s, %s, %s, %s, %s)',
-        (
-            data.get('module_name'),
-            data.get('description'),
-            data.get('user_id'),
-            data.get('create_date'),
-            data.get('change_date')
-        )
-    )
+    # JSON alanları stringe çevir
+    trigger_time = data.get('trigger_time')
+    if isinstance(trigger_time, dict):
+        trigger_time = json.dumps(trigger_time)
+    fields = ['module_name', 'description', 'user_id']
+    values = [data.get(f) for f in fields]
+    sql_fields = ', '.join(fields)
+    sql_placeholders = ', '.join(['%s'] * len(fields))
+    if data.get('create_date'):
+        sql_fields += ', create_date'
+        sql_placeholders += ', %s'
+        values.append(data.get('create_date'))
+    if data.get('change_date'):
+        sql_fields += ', change_date'
+        sql_placeholders += ', %s'
+        values.append(data.get('change_date'))
+    cur.execute(f'INSERT INTO data_prepare_modules ({sql_fields}) VALUES ({sql_placeholders})', values)
     conn.commit()
     cur.close()
     conn.close()
@@ -295,28 +302,36 @@ def add_assistant():
     data = request.get_json(force=True) or {}
     conn = get_db_connection()
     cur = conn.cursor()
+    # JSON alanları stringe çevir
     parameters = data.get('parameters')
-    trigger_time = data.get('trigger_time')
     if isinstance(parameters, dict):
         parameters = json.dumps(parameters)
+    trigger_time = data.get('trigger_time')
     if isinstance(trigger_time, dict):
         trigger_time = json.dumps(trigger_time)
-    cur.execute(
-        'INSERT INTO assistants (title, explanation, parameters, user_id, create_date, change_date, working_place, default_instructions, data_instructions, file_path, trigger_time) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
-        (
-            data.get('title'),
-            data.get('explanation'),
-            parameters,
-            data.get('user_id'),
-            data.get('create_date'),
-            data.get('change_date'),
-            data.get('working_place'),
-            data.get('default_instructions'),
-            data.get('data_instructions'),
-            data.get('file_path'),
-            trigger_time
-        )
-    )
+    fields = ['title', 'explanation', 'parameters', 'user_id', 'working_place', 'default_instructions', 'data_instructions', 'file_path', 'trigger_time']
+    values = [
+        data.get('title'),
+        data.get('explanation'),
+        parameters,
+        data.get('user_id'),
+        data.get('working_place'),
+        data.get('default_instructions'),
+        data.get('data_instructions'),
+        data.get('file_path'),
+        trigger_time
+    ]
+    sql_fields = ', '.join(fields)
+    sql_placeholders = ', '.join(['%s'] * len(fields))
+    if data.get('create_date'):
+        sql_fields += ', create_date'
+        sql_placeholders += ', %s'
+        values.append(data.get('create_date'))
+    if data.get('change_date'):
+        sql_fields += ', change_date'
+        sql_placeholders += ', %s'
+        values.append(data.get('change_date'))
+    cur.execute(f'INSERT INTO assistants ({sql_fields}) VALUES ({sql_placeholders})', values)
     conn.commit()
     cur.close()
     conn.close()
@@ -370,8 +385,15 @@ def update_assistant(asistan_id):
 def get_auto_prompt():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute('SELECT * FROM auto_prompt')
+    cur.execute('''
+        SELECT ap.*, a.title as assistant_title
+        FROM auto_prompt ap
+        LEFT JOIN assistants a ON ap.asistan_id = a.asistan_id
+    ''')
     records = cur.fetchall()
+    for rec in records:
+        if 'asistan_id' in rec:
+            rec['assistant_title'] = rec.pop('assistant_title')
     cur.close()
     conn.close()
     return jsonify(records)
@@ -384,13 +406,27 @@ def add_auto_prompt():
     trigger_time = data.get('trigger_time')
     if isinstance(trigger_time, dict):
         trigger_time = json.dumps(trigger_time)
+    assistant_title = data.get('assistant_title')
+    if not assistant_title:
+        cur.close()
+        conn.close()
+        return jsonify({'error': 'assistant_title gerekli'}), 400
+    cur.execute('SELECT asistan_id FROM assistants WHERE title = %s', (assistant_title,))
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        conn.close()
+        return jsonify({'error': 'assistant_title bulunamadı'}), 400
+    asistan_id = row[0]
     cur.execute(
-        'INSERT INTO auto_prompt (prompt_text, assistants_id, trigger_time, mcrisactive) VALUES (%s, %s, %s, %s)',
+        'INSERT INTO auto_prompt (asistan_id, question, trigger_time, option_code, mcrisactive, receiver_emails) VALUES (%s, %s, %s, %s, %s, %s)',
         (
-            data.get('prompt_text'),
-            data.get('assistants_id'),
+            asistan_id,
+            data.get('question'),
             trigger_time,
-            data.get('mcrisactive')
+            data.get('option_code'),
+            data.get('mcrisactive'),
+            data.get('receiver_emails')
         )
     )
     conn.commit()
@@ -430,6 +466,31 @@ def update_auto_prompt(prompt_id):
     cur.close()
     conn.close()
     return jsonify({'status': 'updated'})
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json(force=True) or {}
+    email = data.get('e_mail')
+    password = data.get('password')
+    if not email or not password:
+        return jsonify({'error': 'E-posta ve şifre gerekli'}), 400
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute('SELECT * FROM users WHERE e_mail = %s AND password = %s', (email, password))
+    user = cur.fetchone()
+    if user:
+        cur.execute('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = %s', (user['id'],))
+        conn.commit()
+        # Kullanıcıyı tekrar çek, güncel last_login ile
+        cur.execute('SELECT * FROM users WHERE id = %s', (user['id'],))
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
+        return jsonify(user)
+    else:
+        cur.close()
+        conn.close()
+        return jsonify({'error': 'Geçersiz e-posta veya şifre'}), 401
 
 @app.route('/test')
 def test():
