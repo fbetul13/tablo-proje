@@ -17,6 +17,8 @@ if "role_form_key" not in st.session_state:
 if "show_table" not in st.session_state:
     st.session_state["show_table"] = False
 
+# Custom CSS for alert boxes (KALDIRILDI)
+
 def get_users():
     try:
         resp = requests.get(f"{BACKEND_URL}/users")
@@ -220,8 +222,9 @@ with st.expander("Yeni Kayıt Ekle"):
 
     if table_name == "Roles":
         form = st.form(key=f"role_form_{st.session_state['role_form_key']}")
-        role_id = form.number_input("role_id", step=1, format="%d")
-        role_name = form.text_input("role_name")
+        role_id = form.number_input("role_id", min_value=0, step=1, format="%d")
+        role_name = form.text_input("role_name", max_chars=100)
+        # Karakter sayacı kaldırıldı
         permissions = form.text_area("permissions (JSON)", value="{}")
         admin_or_not = form.selectbox("admin_or_not", ["Evet", "Hayır"]) == "Evet"
         submitted = form.form_submit_button("Ekle")
@@ -233,7 +236,9 @@ with st.expander("Yeni Kayıt Ekle"):
         }
         missing_fields = check_required_fields(table_options["Roles"]["fields"], add_data)
         if submitted:
-            if missing_fields:
+            if role_id == 0:
+                form.error("Role ID 0 olamaz.")
+            elif missing_fields:
                 for mf, reason in missing_fields:
                     form.markdown(f'<div style="color:red; font-size:12px;">{reason}</div>', unsafe_allow_html=True)
                 form.error("Eksik alan(lar): " + ", ".join([mf for mf, _ in missing_fields]))
@@ -274,18 +279,18 @@ with st.expander("Yeni Kayıt Ekle"):
         users = get_users()
         user_options = {f"{u['name']} {u['surname']}": u['id'] for u in users} if users else {}
         form = st.form(key=f"assistant_form_{st.session_state.get('assistant_form_key', 0)}")
-        title = form.text_input("title")
-        explanation = form.text_input("explanation")
+        title = form.text_area("title")
+        explanation = form.text_area("explanation")
         parameters = form.text_area("parameters (JSON)", value="{}")
         if user_options:
             user_display = form.selectbox("Kişi (Users tablosundan)", list(user_options.keys()))
             user_id = user_options[user_display]
         else:
             user_id = None
-        working_place = form.text_input("working_place")
-        default_instructions = form.text_input("default_instructions")
-        data_instructions = form.text_input("data_instructions")
-        file_path = form.text_input("file_path")
+        working_place = form.text_area("working_place")
+        default_instructions = form.text_area("default_instructions")
+        data_instructions = form.text_area("data_instructions")
+        file_path = form.text_area("file_path")
         trigger_time = form.text_area("trigger_time (JSON)", value="{}")
         submitted = form.form_submit_button("Ekle")
         if submitted:
@@ -339,13 +344,13 @@ with st.expander("Yeni Kayıt Ekle"):
         except Exception:
             assistant_titles = []
         form = st.form(key=f"auto_prompt_form_{st.session_state.get('auto_prompt_form_key', 0)}")
-        question = form.text_input("question", max_chars=255)
+        question = form.text_area("question", max_chars=255)
         if len(question) > 100:
             form.markdown('<div style="color:red; font-size:12px;">En fazla 100 karakter girebilirsiniz.</div>', unsafe_allow_html=True)
         if assistant_titles:
             assistant_title = form.selectbox("assistant_title (Assistants tablosundan)", assistant_titles)
         else:
-            assistant_title = form.text_input("assistant_title", max_chars=100)
+            assistant_title = form.text_area("assistant_title", max_chars=100)
             if len(assistant_title) > 100:
                 form.markdown('<div style="color:red; font-size:12px;">En fazla 100 karakter girebilirsiniz.</div>', unsafe_allow_html=True)
         trigger_time = form.text_area("trigger_time (JSON)", value="{}")
@@ -412,23 +417,24 @@ with st.expander("Yeni Kayıt Ekle"):
         assistant_options = {f"{a['asistan_id']} - {a['title']}": a['asistan_id'] for a in assistants} if assistants else {}
         database_options = {f"{d['database_id']} - {d['database_name']} ({d['database_ip']}:{d['database_port']})": d['database_id'] for d in databases} if databases else {}
         form = st.form(key=f"dpm_form_{st.session_state.get('dpm_form_key', 0)}")
-        module_name = form.text_input("module_name")
-        description = form.text_input("description")
+        module_name = form.text_area("module_name")
+        description = form.text_area("description")
         user_id = form.selectbox("user_id (Users tablosundan)", list(user_options.keys())) if user_options else form.text_input("user_id")
         asistan_id = form.selectbox("asistan_id (Assistants tablosundan)", list(assistant_options.keys())) if assistant_options else form.text_input("asistan_id")
         database_id = form.selectbox("database_id (Database Info tablosundan)", list(database_options.keys())) if database_options else form.text_input("database_id")
         csv_database_id = form.text_input("csv_database_id")
         query = form.text_area("query")
-        working_platform = form.text_input("working_platform", max_chars=100)
+        working_platform = form.text_area("working_platform", max_chars=100)
         if working_platform and len(working_platform) > 100:
             form.markdown('<div style="color:red; font-size:12px;">En fazla 100 karakter girebilirsiniz.</div>', unsafe_allow_html=True)
-        query_name = form.text_input("query_name", max_chars=100)
+        query_name = form.text_area("query_name", max_chars=100)
         if query_name and len(query_name) > 100:
             form.markdown('<div style="color:red; font-size:12px;">En fazla 100 karakter girebilirsiniz.</div>', unsafe_allow_html=True)
         db_schema = form.text_area("db_schema")
         documents_id = form.text_input("documents_id")
         csv_db_schema = form.text_area("csv_db_schema")
-        data_prep_code = form.text_area("data_prep_code", height=200, help="Buraya Python kodunuzu yazabilirsiniz.")
+        data_prep_code = form.text_area("data_prep_code", height=200, max_chars=1000, help="Buraya Python kodunuzu yazabilirsiniz.")
+        # Karakter sayacı kaldırıldı
         submitted = form.form_submit_button("Ekle")
         if submitted:
             if (working_platform and len(working_platform) > 100) or (query_name and len(query_name) > 100):
@@ -477,12 +483,12 @@ with st.expander("Yeni Kayıt Ekle"):
         users = get_users()
         user_options = {f"{u['id']} - {u['name']} {u['surname']} ({u['e_mail']})": u['id'] for u in users} if users else {}
         form = st.form(key=f"dbinfo_form_{st.session_state.get('dbinfo_form_key', 0)}")
-        database_ip = form.text_input("database_ip")
-        database_port = form.text_input("database_port")
-        database_user = form.text_input("database_user")
-        database_password = form.text_input("database_password")
-        database_type = form.text_input("database_type")
-        database_name = form.text_input("database_name")
+        database_ip = form.text_area("database_ip")
+        database_port = form.text_area("database_port")
+        database_user = form.text_area("database_user")
+        database_password = form.text_area("database_password")
+        database_type = form.text_area("database_type")
+        database_name = form.text_area("database_name")
         user_id = form.selectbox("user_id (Users tablosundan)", list(user_options.keys())) if user_options else form.text_input("user_id")
         submitted = form.form_submit_button("Ekle")
         if submitted:
@@ -616,23 +622,19 @@ with st.expander("Kayıt Sil"):
             selected = st.selectbox("Silinecek Kişi", list(user_options.keys()), key="delete_user_select")
             delete_id = user_options[selected]
         else:
-            st.warning("Silinecek kullanıcı yok.")
+            st.success("Silinecek kullanıcı yok.")
             delete_id = None
     elif table_name == "Roles":
         roles = get_roles()
         delete_id = None
         if roles:
-            # role_id selectbox
-            role_ids = [r['role_id'] for r in roles]
-            selected_role_id = st.selectbox("Silinecek Rol ID (role_id)", role_ids, key="delete_role_id_select")
             # role_name selectbox
             role_names = [r['role_name'] for r in roles]
             selected_role_name = st.selectbox("Silinecek Rol (role_name)", role_names, key="delete_role_name_select")
             # Seçilen role_name'e sahip ilk kaydın id'sini bul
             selected_role_by_name = next((r for r in roles if r['role_name'] == selected_role_name), None)
         else:
-            st.warning("Silinecek rol yok.")
-            selected_role_id = None
+            st.success("Silinecek rol yok.")
             selected_role_by_name = None
         # Manuel ID girişi
         manual_delete_id = st.text_input("Silinecek ID (veya anahtar)", key="delete_role_id_manual")
@@ -642,8 +644,6 @@ with st.expander("Kayıt Sil"):
             except Exception:
                 st.warning("Geçerli bir ID girin.")
                 delete_id = None
-        elif selected_role_id is not None:
-            delete_id = selected_role_id
         elif selected_role_by_name:
             delete_id = selected_role_by_name['role_id']
     elif table_name == "Assistants":
@@ -653,7 +653,7 @@ with st.expander("Kayıt Sil"):
             selected = st.selectbox("Silinecek Asistan", list(assistant_options.keys()), key="delete_assistant_select")
             delete_id = assistant_options[selected]
         else:
-            st.warning("Silinecek asistan yok.")
+            st.success("Silinecek asistan yok.")
             delete_id = None
     elif table_name == "Auto Prompt":
         auto_prompts = requests.get(f"{BACKEND_URL}/auto_prompt").json()
@@ -662,7 +662,7 @@ with st.expander("Kayıt Sil"):
             selected = st.selectbox("Silinecek Auto Prompt", list(auto_prompt_options.keys()), key="delete_auto_prompt_select")
             delete_id = auto_prompt_options[selected]
         else:
-            st.warning("Silinecek auto prompt yok.")
+            st.success("Silinecek auto prompt yok.")
             delete_id = None
     elif table_name == "Data Prepare Modules":
         dpm_modules = requests.get(f"{BACKEND_URL}/data_prepare_modules").json()
@@ -671,7 +671,7 @@ with st.expander("Kayıt Sil"):
             selected = st.selectbox("Silinecek Data Prepare Module", list(dpm_options.keys()), key="delete_dpm_select")
             delete_id = dpm_options[selected]
         else:
-            st.warning("Silinecek data prepare module yok.")
+            st.success("Silinecek data prepare module yok.")
             delete_id = None
     elif table_name == "Database Info":
         dbinfo_entries = requests.get(f"{BACKEND_URL}/database_info").json()
@@ -680,7 +680,7 @@ with st.expander("Kayıt Sil"):
             selected = st.selectbox("Silinecek Database Info", list(dbinfo_options.keys()), key="delete_dbinfo_select")
             delete_id = dbinfo_options[selected]
         else:
-            st.warning("Silinecek database info yok.")
+            st.success("Silinecek database info yok.")
             delete_id = None
     else:
         delete_id = st.text_input("Silinecek ID (veya anahtar)", key="delete_id")
@@ -690,6 +690,8 @@ with st.expander("Kayıt Sil"):
                 resp = requests.delete(f"{BACKEND_URL}/{endpoint}/{delete_id}")
                 if resp.status_code == 200:
                     st.success("Kayıt silindi!")
+                    if table_name == "Roles":
+                        st.markdown('<span style="color:green; font-size:16px;">Kayıt silindi.</span>', unsafe_allow_html=True)
                     st.rerun()
                 else:
                     try:
@@ -703,7 +705,7 @@ with st.expander("Kayıt Sil"):
             except Exception as e:
                 st.error('Kayıt silinemedi.')
         else:
-            st.warning("Lütfen silinecek ID girin.")
+            st.error("Lütfen silinecek ID girin.")
 
 # Güncelle
 with st.expander("Kayıt Güncelle"):
@@ -717,7 +719,7 @@ with st.expander("Kayıt Güncelle"):
             update_id = user_options[selected]
             user_row = next((u for u in users if u['id'] == update_id), None)
         else:
-            st.warning("Güncellenecek kullanıcı yok.")
+            st.success("Güncellenecek kullanıcı yok.")
             update_id = None
             user_row = None
     elif table_name == "Roles":
@@ -728,7 +730,7 @@ with st.expander("Kayıt Güncelle"):
             update_id = role_options[selected]
             role_row = next((r for r in roles if r['role_id'] == update_id), None)
         else:
-            st.warning("Güncellenecek rol yok.")
+            st.success("Güncellenecek rol yok.")
             update_id = None
             role_row = None
     elif table_name == "Assistants":
@@ -739,7 +741,7 @@ with st.expander("Kayıt Güncelle"):
             update_id = assistant_options[selected]
             assistant_row = next((a for a in assistants if a['asistan_id'] == update_id), None)
         else:
-            st.warning("Güncellenecek asistan yok.")
+            st.success("Güncellenecek asistan yok.")
             update_id = None
             assistant_row = None
     elif table_name == "Auto Prompt":
@@ -750,7 +752,7 @@ with st.expander("Kayıt Güncelle"):
             update_id = auto_prompt_options[selected]
             auto_prompt_row = next((ap for ap in auto_prompts if ap['prompt_id'] == update_id), None)
         else:
-            st.warning("Güncellenecek auto prompt yok.")
+            st.success("Güncellenecek auto prompt yok.")
             update_id = None
             auto_prompt_row = None
     elif table_name == "Data Prepare Modules":
@@ -761,7 +763,7 @@ with st.expander("Kayıt Güncelle"):
             update_id = dpm_options[selected]
             dpm_row = next((dpm for dpm in dpm_modules if dpm['module_id'] == update_id), None)
         else:
-            st.warning("Güncellenecek data prepare module yok.")
+            st.success("Güncellenecek data prepare module yok.")
             update_id = None
             dpm_row = None
     elif table_name == "Database Info":
@@ -772,7 +774,7 @@ with st.expander("Kayıt Güncelle"):
             update_id = dbinfo_options[selected]
             dbinfo_row = next((dbinfo for dbinfo in dbinfo_entries if dbinfo['database_id'] == update_id), None)
         else:
-            st.warning("Güncellenecek database info yok.")
+            st.success("Güncellenecek database info yok.")
             update_id = None
             dbinfo_row = None
     else:
@@ -791,9 +793,12 @@ with st.expander("Kayıt Güncelle"):
         if table_name == "Users" and fname == "role_id":
             if user_row:
                 default_role = next((r for r in roles if r['role_id'] == user_row['role_id']), None)
-                default_role_name = default_role['role_name'] if default_role else role_names[0]
+                if role_names:
+                    default_role_name = default_role['role_name'] if default_role else role_names[0]
+                else:
+                    default_role_name = ""
             else:
-                default_role_name = role_names[0]
+                default_role_name = role_names[0] if role_names else ""
             update_data['role_name'] = st.selectbox("Yeni Rol", role_names, index=role_names.index(default_role_name) if default_role_name in role_names else 0)
         elif table_name == "Roles" and fname == "role_id":
             continue  # role_id güncellenemez
@@ -810,13 +815,13 @@ with st.expander("Kayıt Güncelle"):
             elif (table_name == "Roles" and role_row and fname in role_row):
                 update_data[fname] = st.text_input("Yeni " + fname, value=role_row[fname], key=f"update_{fname}")
             elif (table_name == "Assistants" and assistant_row and fname in assistant_row):
-                update_data[fname] = st.text_input("Yeni " + fname, value=assistant_row[fname], key=f"update_{fname}")
+                update_data[fname] = st.text_area("Yeni " + fname, value=assistant_row[fname], key=f"update_{fname}")
             elif (table_name == "Auto Prompt" and auto_prompt_row and fname in auto_prompt_row):
-                update_data[fname] = st.text_input("Yeni " + fname, value=auto_prompt_row[fname], key=f"update_{fname}")
+                update_data[fname] = st.text_area("Yeni " + fname, value=auto_prompt_row[fname], key=f"update_{fname}")
             elif (table_name == "Data Prepare Modules" and dpm_row and fname in dpm_row):
-                update_data[fname] = st.text_input("Yeni " + fname, value=dpm_row[fname], key=f"update_{fname}")
+                update_data[fname] = st.text_area("Yeni " + fname, value=dpm_row[fname], key=f"update_{fname}")
             elif (table_name == "Database Info" and dbinfo_row and fname in dbinfo_row):
-                update_data[fname] = st.text_input("Yeni " + fname, value=dbinfo_row[fname], key=f"update_{fname}")
+                update_data[fname] = st.text_area("Yeni " + fname, value=dbinfo_row[fname], key=f"update_{fname}")
             else:
                 update_data[fname] = st.text_input("Yeni " + fname, key=f"update_{fname}")
     if st.button("Güncelle"):
@@ -833,10 +838,25 @@ with st.expander("Kayıt Güncelle"):
         if update_id:
             try:
                 resp = requests.put(f"{BACKEND_URL}/{endpoint}/{update_id}", json=update_data)
-                st.success("Kayıt güncellendi!" if resp.status_code == 200 else resp.text)
                 if resp.status_code == 200:
+                    st.success("Kayıt güncellendi!")
                     st.rerun()
+                else:
+                    st.error("Kayıt güncellenemedi: " + resp.text)
             except Exception as e:
                 st.error(f"Kayıt güncellenemedi: {e}")
         else:
-            st.warning("Lütfen güncellenecek ID girin.") 
+            st.error("Lütfen güncellenecek ID girin.") 
+
+# Auto Prompt'taki python_code alanı için Courier fontu
+st.markdown(
+    """
+    <style>
+    textarea[data-testid="stTextArea-input"] {
+        font-family: Courier, monospace !important;
+        font-size: 16px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+) 
