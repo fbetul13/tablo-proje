@@ -279,7 +279,8 @@ with st.expander("Yeni Kayıt Ekle"):
         users = get_users()
         user_options = {f"{u['name']} {u['surname']}": u['id'] for u in users} if users else {}
         form = st.form(key=f"assistant_form_{st.session_state.get('assistant_form_key', 0)}")
-        title = form.text_area("title")
+        title = form.text_area("title", max_chars=255)
+        # Karakter sayacı kaldırıldı
         explanation = form.text_area("explanation")
         parameters = form.text_area("parameters (JSON)", value="{}")
         if user_options:
@@ -287,10 +288,12 @@ with st.expander("Yeni Kayıt Ekle"):
             user_id = user_options[user_display]
         else:
             user_id = None
-        working_place = form.text_area("working_place")
+        working_place = form.text_area("working_place", max_chars=255)
+        # Karakter sayacı kaldırıldı
         default_instructions = form.text_area("default_instructions")
         data_instructions = form.text_area("data_instructions")
-        file_path = form.text_area("file_path")
+        file_path = form.text_area("file_path", max_chars=255)
+        # Karakter sayacı kaldırıldı
         trigger_time = form.text_area("trigger_time (JSON)", value="{}")
         submitted = form.form_submit_button("Ekle")
         if submitted:
@@ -423,15 +426,10 @@ with st.expander("Yeni Kayıt Ekle"):
         asistan_id = form.selectbox("asistan_id (Assistants tablosundan)", list(assistant_options.keys())) if assistant_options else form.text_input("asistan_id")
         database_id = form.selectbox("database_id (Database Info tablosundan)", list(database_options.keys())) if database_options else form.text_input("database_id")
         csv_database_id = form.text_input("csv_database_id")
-        query = form.text_area("query")
+        query_name = form.text_area("query_name", max_chars=255)
         working_platform = form.text_area("working_platform", max_chars=100)
-        if working_platform and len(working_platform) > 100:
-            form.markdown('<div style="color:red; font-size:12px;">En fazla 100 karakter girebilirsiniz.</div>', unsafe_allow_html=True)
-        query_name = form.text_area("query_name", max_chars=100)
-        if query_name and len(query_name) > 100:
-            form.markdown('<div style="color:red; font-size:12px;">En fazla 100 karakter girebilirsiniz.</div>', unsafe_allow_html=True)
         db_schema = form.text_area("db_schema")
-        documents_id = form.text_input("documents_id")
+        documents_id = form.text_area("documents_id")
         csv_db_schema = form.text_area("csv_db_schema")
         data_prep_code = form.text_area("data_prep_code", height=200, max_chars=1000, help="Buraya Python kodunuzu yazabilirsiniz.")
         # Karakter sayacı kaldırıldı
@@ -448,9 +446,8 @@ with st.expander("Yeni Kayıt Ekle"):
                         "asistan_id": assistant_options[asistan_id] if assistant_options else asistan_id,
                         "database_id": database_options[database_id] if database_options else database_id,
                         "csv_database_id": csv_database_id,
-                        "query": query,
-                        "working_platform": working_platform,
                         "query_name": query_name,
+                        "working_platform": working_platform,
                         "db_schema": db_schema,
                         "documents_id": documents_id,
                         "csv_db_schema": csv_db_schema,
@@ -483,12 +480,12 @@ with st.expander("Yeni Kayıt Ekle"):
         users = get_users()
         user_options = {f"{u['id']} - {u['name']} {u['surname']} ({u['e_mail']})": u['id'] for u in users} if users else {}
         form = st.form(key=f"dbinfo_form_{st.session_state.get('dbinfo_form_key', 0)}")
-        database_ip = form.text_area("database_ip")
+        database_ip = form.text_area("database_ip", max_chars=100)
         database_port = form.text_area("database_port")
-        database_user = form.text_area("database_user")
-        database_password = form.text_area("database_password")
-        database_type = form.text_area("database_type")
-        database_name = form.text_area("database_name")
+        database_user = form.text_area("database_user", max_chars=100)
+        database_password = form.text_area("database_password", max_chars=100)
+        database_type = form.text_area("database_type", max_chars=50)
+        database_name = form.text_area("database_name", max_chars=100)
         user_id = form.selectbox("user_id (Users tablosundan)", list(user_options.keys())) if user_options else form.text_input("user_id")
         submitted = form.form_submit_button("Ekle")
         if submitted:
