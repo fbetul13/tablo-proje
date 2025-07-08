@@ -44,6 +44,15 @@ def get_assistants():
     except Exception:
         return []
 
+def get_database_info():
+    try:
+        resp = requests.get(f"{BACKEND_URL}/database_info")
+        if resp.status_code == 200:
+            return resp.json()
+        return []
+    except Exception:
+        return []
+
 def is_valid_email(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email) is not None
 
@@ -83,12 +92,20 @@ table_options = {
     "Data Prepare Modules": {
         "endpoint": "data_prepare_modules",
         "fields": [
+            {"name": "module_id", "type": "number"},
             {"name": "module_name", "type": "text"},
             {"name": "description", "type": "text"},
             {"name": "user_id", "type": "number"},
             {"name": "asistan_id", "type": "number"},
             {"name": "database_id", "type": "number"},
-            {"name": "csv_database_id", "type": "number"}
+            {"name": "csv_database_id", "type": "number"},
+            {"name": "query", "type": "text"},
+            {"name": "working_platform", "type": "text"},
+            {"name": "query_name", "type": "text"},
+            {"name": "db_schema", "type": "text"},
+            {"name": "documents_id", "type": "number"},
+            {"name": "csv_db_schema", "type": "text"},
+            {"name": "data_prep_code", "type": "text"}
         ]
     },
     "Assistants": {
@@ -111,7 +128,7 @@ table_options = {
             {"name": "question", "type": "text"},
             {"name": "assistant_title", "type": "text"},
             {"name": "trigger_time", "type": "json"},
-            {"name": "option_code", "type": "text"},
+            {"name": "python_code", "type": "text"},
             {"name": "mcrisactive", "type": "bool"},
             {"name": "receiver_emails", "type": "text"}
         ]
@@ -154,9 +171,29 @@ if st.session_state["show_table"]:
                 st.dataframe(df[show_cols])
             elif table_name == "Auto Prompt":
                 df = pd.DataFrame(data)
-                show_cols = ['prompt_id', 'question', 'assistant_title', 'trigger_time', 'option_code', 'mcrisactive', 'receiver_emails']
+                show_cols = ['prompt_id', 'question', 'assistant_title', 'trigger_time', 'python_code', 'mcrisactive', 'receiver_emails']
                 show_cols = [c for c in show_cols if c in df.columns]
                 st.dataframe(df[show_cols])
+            elif table_name == "Data Prepare Modules":
+                df = pd.DataFrame(data)
+                show_cols = ['module_id', 'module_name', 'description', 'user_id', 'asistan_id', 'database_id', 'csv_database_id', 'query', 'working_platform', 'query_name', 'db_schema', 'documents_id', 'csv_db_schema', 'data_prep_code']
+                show_cols = [c for c in show_cols if c in df.columns]
+                for idx, row in df.iterrows():
+                    st.write(f"**Module ID:** {row.get('module_id','')}")
+                    st.write(f"**Module Name:** {row.get('module_name','')}")
+                    st.write(f"**Description:** {row.get('description','')}")
+                    st.write(f"**User ID:** {row.get('user_id','')}")
+                    st.write(f"**Asistan ID:** {row.get('asistan_id','')}")
+                    st.write(f"**Database ID:** {row.get('database_id','')}")
+                    st.write(f"**CSV Database ID:** {row.get('csv_database_id','')}")
+                    st.write(f"**Query:** {row.get('query','')}")
+                    st.write(f"**Working Platform:** {row.get('working_platform','')}")
+                    st.write(f"**Query Name:** {row.get('query_name','')}")
+                    st.write(f"**DB Schema:** {row.get('db_schema','')}")
+                    st.write(f"**Documents ID:** {row.get('documents_id','')}")
+                    st.write(f"**CSV DB Schema:** {row.get('csv_db_schema','')}")
+                    st.code(row.get('data_prep_code',''), language='python')
+                    st.markdown('---')
             else:
                 df = pd.DataFrame(data)
                 st.dataframe(df)
@@ -169,6 +206,18 @@ if st.session_state["show_table"]:
 
 # Ekle
 with st.expander("Yeni Kayıt Ekle"):
+    def check_required_fields(field_defs, values_dict):
+        missing = []
+        for f in field_defs:
+            fname = f["name"]
+            if fname in ["create_date", "change_date"]:
+                continue
+            if f["type"] == "bool":
+                continue
+            if not values_dict.get(fname) and values_dict.get(fname) != False:
+                missing.append((fname, f"{fname} alanı zorunludur."))
+        return missing
+
     if table_name == "Roles":
         form = st.form(key=f"role_form_{st.session_state['role_form_key']}")
         role_id = form.number_input("role_id", step=1, format="%d")
@@ -176,23 +225,51 @@ with st.expander("Yeni Kayıt Ekle"):
         permissions = form.text_area("permissions (JSON)", value="{}")
         admin_or_not = form.selectbox("admin_or_not", ["Evet", "Hayır"]) == "Evet"
         submitted = form.form_submit_button("Ekle")
+        add_data = {
+            "role_id": role_id,
+            "role_name": role_name,
+            "permissions": permissions,
+            "admin_or_not": admin_or_not
+        }
+        missing_fields = check_required_fields(table_options["Roles"]["fields"], add_data)
         if submitted:
-            try:
-                add_data = {
-                    "role_id": role_id,
-                    "role_name": role_name,
-                    "permissions": json.loads(permissions) if permissions else {},
-                    "admin_or_not": admin_or_not
-                }
-                resp = requests.post(f"{BACKEND_URL}/roles", json=add_data)
-                if resp.status_code == 200:
-                    st.session_state["success_message"] = "Kayıt eklendi!"
-                    st.session_state["role_form_key"] += 1  # Formu sıfırla
-                    st.rerun()
-                else:
-                    form.error(resp.text)
-            except Exception as e:
-                form.error(f"Kayıt eklenemedi: {e}")
+            if missing_fields:
+                for mf, reason in missing_fields:
+                    form.markdown(f'<div style="color:red; font-size:12px;">{reason}</div>', unsafe_allow_html=True)
+                form.error("Eksik alan(lar): " + ", ".join([mf for mf, _ in missing_fields]))
+            else:
+                try:
+                    add_data["permissions"] = json.loads(permissions) if permissions else {}
+                    resp = requests.post(f"{BACKEND_URL}/roles", json=add_data)
+                    if resp.status_code == 200:
+                        st.session_state["success_message"] = "Kayıt eklendi!"
+                        st.session_state["role_form_key"] += 1  # Formu sıfırla
+                        st.rerun()
+                    else:
+                        try:
+                            error_msg = resp.json().get('error') if resp.headers.get('Content-Type','').startswith('application/json') else resp.text
+                            if isinstance(error_msg, str) and (error_msg.strip().lower().startswith('<html') or error_msg.strip().lower().startswith('<!doctype')):
+                                form.error('Geçersiz giriş, lütfen alanları kontrol edin.')
+                            elif isinstance(error_msg, str) and (
+                                'already exists' in error_msg.lower() or
+                                'duplicate' in error_msg.lower() or
+                                'unique constraint' in error_msg.lower() or
+                                'not unique' in error_msg.lower()
+                            ):
+                                if 'e_mail' in error_msg.lower() or 'email' in error_msg.lower():
+                                    form.error('Bu e-posta adresiyle zaten bir kullanıcı var.')
+                                elif 'id' in error_msg.lower():
+                                    form.error('Bu ID ile zaten bir kayıt mevcut.')
+                                elif 'name' in error_msg.lower():
+                                    form.error('Bu isimle bir kayıt zaten eklenmiş.')
+                                else:
+                                    form.error('Bu kayıt zaten mevcut.')
+                            else:
+                                form.error(error_msg)
+                        except Exception:
+                            form.error('Geçersiz giriş, lütfen alanları kontrol edin.')
+                except Exception as e:
+                    form.error(str(e))
     elif table_name == "Assistants":
         users = get_users()
         user_options = {f"{u['name']} {u['surname']}": u['id'] for u in users} if users else {}
@@ -230,9 +307,30 @@ with st.expander("Yeni Kayıt Ekle"):
                     st.session_state["assistant_form_key"] = st.session_state.get('assistant_form_key', 0) + 1
                     st.rerun()
                 else:
-                    form.error(resp.text)
+                    try:
+                        error_msg = resp.json().get('error') if resp.headers.get('Content-Type','').startswith('application/json') else resp.text
+                        if isinstance(error_msg, str) and (error_msg.strip().lower().startswith('<html') or error_msg.strip().lower().startswith('<!doctype')):
+                            form.error('Geçersiz giriş, lütfen alanları kontrol edin.')
+                        elif isinstance(error_msg, str) and (
+                            'already exists' in error_msg.lower() or
+                            'duplicate' in error_msg.lower() or
+                            'unique constraint' in error_msg.lower() or
+                            'not unique' in error_msg.lower()
+                        ):
+                            if 'e_mail' in error_msg.lower() or 'email' in error_msg.lower():
+                                form.error('Bu e-posta adresiyle zaten bir kullanıcı var.')
+                            elif 'id' in error_msg.lower():
+                                form.error('Bu ID ile zaten bir kayıt mevcut.')
+                            elif 'name' in error_msg.lower():
+                                form.error('Bu isimle bir kayıt zaten eklenmiş.')
+                            else:
+                                form.error('Bu kayıt zaten mevcut.')
+                        else:
+                            form.error(error_msg)
+                    except Exception:
+                        form.error('Geçersiz giriş, lütfen alanları kontrol edin.')
             except Exception as e:
-                form.error(f"Kayıt eklenemedi: {e}")
+                form.error(str(e))
     elif table_name == "Auto Prompt":
         # Assistants tablosundan başlıkları çek
         try:
@@ -241,67 +339,186 @@ with st.expander("Yeni Kayıt Ekle"):
         except Exception:
             assistant_titles = []
         form = st.form(key=f"auto_prompt_form_{st.session_state.get('auto_prompt_form_key', 0)}")
-        question = form.text_input("question")
+        question = form.text_input("question", max_chars=255)
+        if len(question) > 100:
+            form.markdown('<div style="color:red; font-size:12px;">En fazla 100 karakter girebilirsiniz.</div>', unsafe_allow_html=True)
         if assistant_titles:
             assistant_title = form.selectbox("assistant_title (Assistants tablosundan)", assistant_titles)
         else:
-            assistant_title = form.text_input("assistant_title")
+            assistant_title = form.text_input("assistant_title", max_chars=100)
+            if len(assistant_title) > 100:
+                form.markdown('<div style="color:red; font-size:12px;">En fazla 100 karakter girebilirsiniz.</div>', unsafe_allow_html=True)
         trigger_time = form.text_area("trigger_time (JSON)", value="{}")
-        option_code = form.text_input("option_code")
+        python_code = form.text_area("python_code", height=200, help="Buraya Python kodunuzu yazabilirsiniz.")
         mcrisactive = form.selectbox("mcrisactive", ["Evet", "Hayır"]) == "Evet"
         receiver_emails = form.text_area("receiver_emails")
+        email_warning = False
+        if receiver_emails:
+            emails = [e.strip() for e in receiver_emails.split(",")]
+            for e in emails:
+                if not is_valid_email(e):
+                    form.markdown('<div style="color:red; font-size:12px;">Lütfen geçerli e-posta adres(ler)i girin. (Virgülle ayırabilirsiniz)</div>', unsafe_allow_html=True)
+                    email_warning = True
+                    break
         submitted = form.form_submit_button("Ekle")
         if submitted:
-            try:
-                add_data = {
-                    "question": question,
-                    "assistant_title": assistant_title,
-                    "trigger_time": json.loads(trigger_time) if trigger_time else {},
-                    "option_code": option_code,
-                    "mcrisactive": mcrisactive,
-                    "receiver_emails": receiver_emails
-                }
-                resp = requests.post(f"{BACKEND_URL}/auto_prompt", json=add_data)
-                if resp.status_code == 200:
-                    st.session_state["success_message"] = "Kayıt eklendi!"
-                    st.session_state["auto_prompt_form_key"] = st.session_state.get('auto_prompt_form_key', 0) + 1
-                    st.rerun()
-                else:
-                    form.error(resp.text)
-            except Exception as e:
-                form.error(f"Kayıt eklenemedi: {e}")
+            if len(question) > 100 or (not assistant_title or len(assistant_title) > 100) or email_warning:
+                form.error("Lütfen alanları doğru ve limitlere uygun doldurun.")
+            else:
+                try:
+                    add_data = {
+                        "question": question,
+                        "assistant_title": assistant_title,
+                        "trigger_time": json.loads(trigger_time) if trigger_time else {},
+                        "python_code": python_code,
+                        "mcrisactive": mcrisactive,
+                        "receiver_emails": receiver_emails
+                    }
+                    resp = requests.post(f"{BACKEND_URL}/auto_prompt", json=add_data)
+                    if resp.status_code == 200:
+                        st.session_state["success_message"] = "Kayıt eklendi!"
+                        st.session_state["auto_prompt_form_key"] = st.session_state.get('auto_prompt_form_key', 0) + 1
+                        st.rerun()
+                    else:
+                        try:
+                            error_msg = resp.json().get('error') if resp.headers.get('Content-Type','').startswith('application/json') else resp.text
+                            if isinstance(error_msg, str) and (error_msg.strip().lower().startswith('<html') or error_msg.strip().lower().startswith('<!doctype')):
+                                form.error('Geçersiz giriş, lütfen alanları kontrol edin.')
+                            elif isinstance(error_msg, str) and (
+                                'already exists' in error_msg.lower() or
+                                'duplicate' in error_msg.lower() or
+                                'unique constraint' in error_msg.lower() or
+                                'not unique' in error_msg.lower()
+                            ):
+                                if 'e_mail' in error_msg.lower() or 'email' in error_msg.lower():
+                                    form.error('Bu e-posta adresiyle zaten bir kullanıcı var.')
+                                elif 'id' in error_msg.lower():
+                                    form.error('Bu ID ile zaten bir kayıt mevcut.')
+                                elif 'name' in error_msg.lower():
+                                    form.error('Bu isimle bir kayıt zaten eklenmiş.')
+                                else:
+                                    form.error('Bu kayıt zaten mevcut.')
+                            else:
+                                form.error(error_msg)
+                        except Exception:
+                            form.error('Geçersiz giriş, lütfen alanları kontrol edin.')
+                except Exception as e:
+                    form.error(str(e))
     elif table_name == "Data Prepare Modules":
         users = get_users()
         assistants = get_assistants()
+        databases = get_database_info()
         user_options = {f"{u['id']} - {u['name']} {u['surname']} ({u['e_mail']})": u['id'] for u in users} if users else {}
         assistant_options = {f"{a['asistan_id']} - {a['title']}": a['asistan_id'] for a in assistants} if assistants else {}
+        database_options = {f"{d['database_id']} - {d['database_name']} ({d['database_ip']}:{d['database_port']})": d['database_id'] for d in databases} if databases else {}
         form = st.form(key=f"dpm_form_{st.session_state.get('dpm_form_key', 0)}")
         module_name = form.text_input("module_name")
         description = form.text_input("description")
         user_id = form.selectbox("user_id (Users tablosundan)", list(user_options.keys())) if user_options else form.text_input("user_id")
         asistan_id = form.selectbox("asistan_id (Assistants tablosundan)", list(assistant_options.keys())) if assistant_options else form.text_input("asistan_id")
-        database_id = form.text_input("database_id")
+        database_id = form.selectbox("database_id (Database Info tablosundan)", list(database_options.keys())) if database_options else form.text_input("database_id")
         csv_database_id = form.text_input("csv_database_id")
+        query = form.text_area("query")
+        working_platform = form.text_input("working_platform", max_chars=100)
+        if working_platform and len(working_platform) > 100:
+            form.markdown('<div style="color:red; font-size:12px;">En fazla 100 karakter girebilirsiniz.</div>', unsafe_allow_html=True)
+        query_name = form.text_input("query_name", max_chars=100)
+        if query_name and len(query_name) > 100:
+            form.markdown('<div style="color:red; font-size:12px;">En fazla 100 karakter girebilirsiniz.</div>', unsafe_allow_html=True)
+        db_schema = form.text_area("db_schema")
+        documents_id = form.text_input("documents_id")
+        csv_db_schema = form.text_area("csv_db_schema")
+        data_prep_code = form.text_area("data_prep_code", height=200, help="Buraya Python kodunuzu yazabilirsiniz.")
+        submitted = form.form_submit_button("Ekle")
+        if submitted:
+            if (working_platform and len(working_platform) > 100) or (query_name and len(query_name) > 100):
+                form.error("Lütfen alanları doğru ve limitlere uygun doldurun.")
+            else:
+                try:
+                    add_data = {
+                        "module_name": module_name,
+                        "description": description,
+                        "user_id": user_options[user_id] if user_options else user_id,
+                        "asistan_id": assistant_options[asistan_id] if assistant_options else asistan_id,
+                        "database_id": database_options[database_id] if database_options else database_id,
+                        "csv_database_id": csv_database_id,
+                        "query": query,
+                        "working_platform": working_platform,
+                        "query_name": query_name,
+                        "db_schema": db_schema,
+                        "documents_id": documents_id,
+                        "csv_db_schema": csv_db_schema,
+                        "data_prep_code": data_prep_code
+                    }
+                    resp = requests.post(f"{BACKEND_URL}/data_prepare_modules", json=add_data)
+                    if resp.status_code == 200:
+                        st.session_state["success_message"] = "Kayıt eklendi!"
+                        st.session_state["dpm_form_key"] = st.session_state.get('dpm_form_key', 0) + 1
+                        st.rerun()
+                    else:
+                        try:
+                            error_msg = resp.json().get('error') if resp.headers.get('Content-Type','').startswith('application/json') else resp.text
+                            if isinstance(error_msg, str) and (error_msg.strip().lower().startswith('<html') or error_msg.strip().lower().startswith('<!doctype')):
+                                form.error('Geçersiz giriş, lütfen alanları kontrol edin.')
+                            elif isinstance(error_msg, str) and (
+                                'already exists' in error_msg.lower() or
+                                'duplicate' in error_msg.lower() or
+                                'unique constraint' in error_msg.lower() or
+                                'not unique' in error_msg.lower()
+                            ):
+                                form.error('Bu kayıt zaten mevcut.')
+                            else:
+                                form.error(error_msg)
+                        except Exception:
+                            form.error('Geçersiz giriş, lütfen alanları kontrol edin.')
+                except Exception as e:
+                    form.error(str(e))
+    elif table_name == "Database Info":
+        users = get_users()
+        user_options = {f"{u['id']} - {u['name']} {u['surname']} ({u['e_mail']})": u['id'] for u in users} if users else {}
+        form = st.form(key=f"dbinfo_form_{st.session_state.get('dbinfo_form_key', 0)}")
+        database_ip = form.text_input("database_ip")
+        database_port = form.text_input("database_port")
+        database_user = form.text_input("database_user")
+        database_password = form.text_input("database_password")
+        database_type = form.text_input("database_type")
+        database_name = form.text_input("database_name")
+        user_id = form.selectbox("user_id (Users tablosundan)", list(user_options.keys())) if user_options else form.text_input("user_id")
         submitted = form.form_submit_button("Ekle")
         if submitted:
             try:
                 add_data = {
-                    "module_name": module_name,
-                    "description": description,
-                    "user_id": user_options[user_id] if user_options else user_id,
-                    "asistan_id": assistant_options[asistan_id] if assistant_options else asistan_id,
-                    "database_id": database_id,
-                    "csv_database_id": csv_database_id
+                    "database_ip": database_ip,
+                    "database_port": database_port,
+                    "database_user": database_user,
+                    "database_password": database_password,
+                    "database_type": database_type,
+                    "database_name": database_name,
+                    "user_id": user_options[user_id] if user_options else user_id
                 }
-                resp = requests.post(f"{BACKEND_URL}/data_prepare_modules", json=add_data)
+                resp = requests.post(f"{BACKEND_URL}/database_info", json=add_data)
                 if resp.status_code == 200:
                     st.session_state["success_message"] = "Kayıt eklendi!"
-                    st.session_state["dpm_form_key"] = st.session_state.get('dpm_form_key', 0) + 1
+                    st.session_state["dbinfo_form_key"] = st.session_state.get('dbinfo_form_key', 0) + 1
                     st.rerun()
                 else:
-                    form.error(resp.text)
+                    try:
+                        error_msg = resp.json().get('error') if resp.headers.get('Content-Type','').startswith('application/json') else resp.text
+                        if isinstance(error_msg, str) and (error_msg.strip().lower().startswith('<html') or error_msg.strip().lower().startswith('<!doctype')):
+                            form.error('Geçersiz giriş, lütfen alanları kontrol edin.')
+                        elif isinstance(error_msg, str) and (
+                            'already exists' in error_msg.lower() or
+                            'duplicate' in error_msg.lower() or
+                            'unique constraint' in error_msg.lower() or
+                            'not unique' in error_msg.lower()
+                        ):
+                            form.error('Bu kayıt zaten mevcut.')
+                        else:
+                            form.error(error_msg)
+                    except Exception:
+                        form.error('Geçersiz giriş, lütfen alanları kontrol edin.')
             except Exception as e:
-                form.error(f"Kayıt eklenemedi: {e}")
+                form.error(str(e))
     else:
         add_data = {}
         for field in fields:
@@ -319,7 +536,12 @@ with st.expander("Yeni Kayıt Ekle"):
                 if not (table_name == "Users" and fname == "role_id"):
                     add_data[fname] = st.number_input(fname, step=1, format="%d")
             else:
-                add_data[fname] = st.text_input(fname)
+                max_chars = 100 if fname in ["name", "surname"] else None
+                add_data[fname] = st.text_input(fname, max_chars=max_chars)
+                if max_chars and add_data[fname] and len(add_data[fname]) > max_chars:
+                    st.markdown(f'<div style="color:red; font-size:12px;">En fazla {max_chars} karakter girebilirsiniz.</div>', unsafe_allow_html=True)
+                if fname == "e_mail" and add_data[fname] and not is_valid_email(add_data[fname]):
+                    st.markdown('<div style="color:red; font-size:12px;">Lütfen geçerli bir e-posta adresi girin (ör: kisi@site.com)</div>', unsafe_allow_html=True)
         if st.button("Ekle"):
             for field in fields:
                 if field["name"] in ["create_date", "change_date"]:
@@ -341,9 +563,23 @@ with st.expander("Yeni Kayıt Ekle"):
                             st.session_state["success_message"] = "Kişi eklendi!"
                             st.rerun()
                         else:
-                            st.error(resp.text)
+                            try:
+                                error_msg = resp.json().get('error') if resp.headers.get('Content-Type','').startswith('application/json') else resp.text
+                                if isinstance(error_msg, str) and (error_msg.strip().lower().startswith('<html') or error_msg.strip().lower().startswith('<!doctype')):
+                                    st.error('Geçersiz giriş, lütfen alanları kontrol edin.')
+                                elif isinstance(error_msg, str) and (
+                                    'already exists' in error_msg.lower() or
+                                    'duplicate' in error_msg.lower() or
+                                    'unique constraint' in error_msg.lower() or
+                                    'not unique' in error_msg.lower()
+                                ):
+                                    st.error('Bu kayıt zaten mevcut.')
+                                else:
+                                    st.error(error_msg)
+                            except Exception:
+                                st.error('Geçersiz giriş, lütfen alanları kontrol edin.')
                     except Exception as e:
-                        st.error(f"Kayıt eklenemedi: {e}")
+                        st.error(str(e))
             else:
                 try:
                     resp = requests.post(f"{BACKEND_URL}/{endpoint}", json=add_data)
@@ -351,9 +587,23 @@ with st.expander("Yeni Kayıt Ekle"):
                         st.session_state["success_message"] = "Kayıt eklendi!"
                         st.rerun()
                     else:
-                        st.error(resp.text)
+                        try:
+                            error_msg = resp.json().get('error') if resp.headers.get('Content-Type','').startswith('application/json') else resp.text
+                            if isinstance(error_msg, str) and (error_msg.strip().lower().startswith('<html') or error_msg.strip().lower().startswith('<!doctype')):
+                                st.error('Geçersiz giriş, lütfen alanları kontrol edin.')
+                            elif isinstance(error_msg, str) and (
+                                'already exists' in error_msg.lower() or
+                                'duplicate' in error_msg.lower() or
+                                'unique constraint' in error_msg.lower() or
+                                'not unique' in error_msg.lower()
+                            ):
+                                st.error('Bu kayıt zaten mevcut.')
+                            else:
+                                st.error(error_msg)
+                        except Exception:
+                            st.error(resp.text)
                 except Exception as e:
-                    st.error(f"Kayıt eklenemedi: {e}")
+                    st.error(str(e))
 
 # Sil
 with st.expander("Kayıt Sil"):
@@ -370,12 +620,67 @@ with st.expander("Kayıt Sil"):
             delete_id = None
     elif table_name == "Roles":
         roles = get_roles()
+        delete_id = None
         if roles:
-            role_options = {f"{r['role_id']} - {r['role_name']}": r['role_id'] for r in roles}
-            selected = st.selectbox("Silinecek Rol", list(role_options.keys()), key="delete_role_select")
-            delete_id = role_options[selected]
+            # role_id selectbox
+            role_ids = [r['role_id'] for r in roles]
+            selected_role_id = st.selectbox("Silinecek Rol ID (role_id)", role_ids, key="delete_role_id_select")
+            # role_name selectbox
+            role_names = [r['role_name'] for r in roles]
+            selected_role_name = st.selectbox("Silinecek Rol (role_name)", role_names, key="delete_role_name_select")
+            # Seçilen role_name'e sahip ilk kaydın id'sini bul
+            selected_role_by_name = next((r for r in roles if r['role_name'] == selected_role_name), None)
         else:
             st.warning("Silinecek rol yok.")
+            selected_role_id = None
+            selected_role_by_name = None
+        # Manuel ID girişi
+        manual_delete_id = st.text_input("Silinecek ID (veya anahtar)", key="delete_role_id_manual")
+        if manual_delete_id:
+            try:
+                delete_id = int(manual_delete_id)
+            except Exception:
+                st.warning("Geçerli bir ID girin.")
+                delete_id = None
+        elif selected_role_id is not None:
+            delete_id = selected_role_id
+        elif selected_role_by_name:
+            delete_id = selected_role_by_name['role_id']
+    elif table_name == "Assistants":
+        assistants = get_assistants()
+        if assistants:
+            assistant_options = {f"{a['asistan_id']} - {a['title']}": a['asistan_id'] for a in assistants}
+            selected = st.selectbox("Silinecek Asistan", list(assistant_options.keys()), key="delete_assistant_select")
+            delete_id = assistant_options[selected]
+        else:
+            st.warning("Silinecek asistan yok.")
+            delete_id = None
+    elif table_name == "Auto Prompt":
+        auto_prompts = requests.get(f"{BACKEND_URL}/auto_prompt").json()
+        if auto_prompts:
+            auto_prompt_options = {f"{ap['prompt_id']} - {ap['question']}": ap['prompt_id'] for ap in auto_prompts}
+            selected = st.selectbox("Silinecek Auto Prompt", list(auto_prompt_options.keys()), key="delete_auto_prompt_select")
+            delete_id = auto_prompt_options[selected]
+        else:
+            st.warning("Silinecek auto prompt yok.")
+            delete_id = None
+    elif table_name == "Data Prepare Modules":
+        dpm_modules = requests.get(f"{BACKEND_URL}/data_prepare_modules").json()
+        if dpm_modules:
+            dpm_options = {f"{dpm['module_id']} - {dpm['module_name']}": dpm['module_id'] for dpm in dpm_modules}
+            selected = st.selectbox("Silinecek Data Prepare Module", list(dpm_options.keys()), key="delete_dpm_select")
+            delete_id = dpm_options[selected]
+        else:
+            st.warning("Silinecek data prepare module yok.")
+            delete_id = None
+    elif table_name == "Database Info":
+        dbinfo_entries = requests.get(f"{BACKEND_URL}/database_info").json()
+        if dbinfo_entries:
+            dbinfo_options = {f"{dbinfo['database_id']} - {dbinfo['database_name']}": dbinfo['database_id'] for dbinfo in dbinfo_entries}
+            selected = st.selectbox("Silinecek Database Info", list(dbinfo_options.keys()), key="delete_dbinfo_select")
+            delete_id = dbinfo_options[selected]
+        else:
+            st.warning("Silinecek database info yok.")
             delete_id = None
     else:
         delete_id = st.text_input("Silinecek ID (veya anahtar)", key="delete_id")
@@ -383,11 +688,20 @@ with st.expander("Kayıt Sil"):
         if delete_id:
             try:
                 resp = requests.delete(f"{BACKEND_URL}/{endpoint}/{delete_id}")
-                st.success("Kayıt silindi!" if resp.status_code == 200 else resp.text)
                 if resp.status_code == 200:
+                    st.success("Kayıt silindi!")
                     st.rerun()
+                else:
+                    try:
+                        error_msg = resp.json().get('error') if resp.headers.get('Content-Type','').startswith('application/json') else resp.text
+                        if isinstance(error_msg, str) and (error_msg.strip().lower().startswith('<html') or error_msg.strip().lower().startswith('<!doctype')):
+                            st.error('Kayıt silinemedi.')
+                        else:
+                            st.error(error_msg)
+                    except Exception:
+                        st.error('Kayıt silinemedi.')
             except Exception as e:
-                st.error(f"Kayıt silinemedi: {e}")
+                st.error('Kayıt silinemedi.')
         else:
             st.warning("Lütfen silinecek ID girin.")
 
@@ -417,10 +731,57 @@ with st.expander("Kayıt Güncelle"):
             st.warning("Güncellenecek rol yok.")
             update_id = None
             role_row = None
+    elif table_name == "Assistants":
+        assistants = get_assistants()
+        if assistants:
+            assistant_options = {f"{a['asistan_id']} - {a['title']}": a['asistan_id'] for a in assistants}
+            selected = st.selectbox("Güncellenecek Asistan", list(assistant_options.keys()), key="update_assistant_select")
+            update_id = assistant_options[selected]
+            assistant_row = next((a for a in assistants if a['asistan_id'] == update_id), None)
+        else:
+            st.warning("Güncellenecek asistan yok.")
+            update_id = None
+            assistant_row = None
+    elif table_name == "Auto Prompt":
+        auto_prompts = requests.get(f"{BACKEND_URL}/auto_prompt").json()
+        if auto_prompts:
+            auto_prompt_options = {f"{ap['prompt_id']} - {ap['question']}": ap['prompt_id'] for ap in auto_prompts}
+            selected = st.selectbox("Güncellenecek Auto Prompt", list(auto_prompt_options.keys()), key="update_auto_prompt_select")
+            update_id = auto_prompt_options[selected]
+            auto_prompt_row = next((ap for ap in auto_prompts if ap['prompt_id'] == update_id), None)
+        else:
+            st.warning("Güncellenecek auto prompt yok.")
+            update_id = None
+            auto_prompt_row = None
+    elif table_name == "Data Prepare Modules":
+        dpm_modules = requests.get(f"{BACKEND_URL}/data_prepare_modules").json()
+        if dpm_modules:
+            dpm_options = {f"{dpm['module_id']} - {dpm['module_name']}": dpm['module_id'] for dpm in dpm_modules}
+            selected = st.selectbox("Güncellenecek Data Prepare Module", list(dpm_options.keys()), key="update_dpm_select")
+            update_id = dpm_options[selected]
+            dpm_row = next((dpm for dpm in dpm_modules if dpm['module_id'] == update_id), None)
+        else:
+            st.warning("Güncellenecek data prepare module yok.")
+            update_id = None
+            dpm_row = None
+    elif table_name == "Database Info":
+        dbinfo_entries = requests.get(f"{BACKEND_URL}/database_info").json()
+        if dbinfo_entries:
+            dbinfo_options = {f"{dbinfo['database_id']} - {dbinfo['database_name']}": dbinfo['database_id'] for dbinfo in dbinfo_entries}
+            selected = st.selectbox("Güncellenecek Database Info", list(dbinfo_options.keys()), key="update_dbinfo_select")
+            update_id = dbinfo_options[selected]
+            dbinfo_row = next((dbinfo for dbinfo in dbinfo_entries if dbinfo['database_id'] == update_id), None)
+        else:
+            st.warning("Güncellenecek database info yok.")
+            update_id = None
+            dbinfo_row = None
     else:
         update_id = st.text_input("Güncellenecek ID (veya anahtar)", key="update_id")
         user_row = None
         role_row = None
+        assistant_row = None
+        auto_prompt_row = None
+        dbinfo_row = None
     update_data = {}
     for field in fields:
         fname = field["name"]
@@ -448,6 +809,14 @@ with st.expander("Kayıt Güncelle"):
                 update_data[fname] = st.text_input("Yeni " + fname, value=user_row[fname], key=f"update_{fname}")
             elif (table_name == "Roles" and role_row and fname in role_row):
                 update_data[fname] = st.text_input("Yeni " + fname, value=role_row[fname], key=f"update_{fname}")
+            elif (table_name == "Assistants" and assistant_row and fname in assistant_row):
+                update_data[fname] = st.text_input("Yeni " + fname, value=assistant_row[fname], key=f"update_{fname}")
+            elif (table_name == "Auto Prompt" and auto_prompt_row and fname in auto_prompt_row):
+                update_data[fname] = st.text_input("Yeni " + fname, value=auto_prompt_row[fname], key=f"update_{fname}")
+            elif (table_name == "Data Prepare Modules" and dpm_row and fname in dpm_row):
+                update_data[fname] = st.text_input("Yeni " + fname, value=dpm_row[fname], key=f"update_{fname}")
+            elif (table_name == "Database Info" and dbinfo_row and fname in dbinfo_row):
+                update_data[fname] = st.text_input("Yeni " + fname, value=dbinfo_row[fname], key=f"update_{fname}")
             else:
                 update_data[fname] = st.text_input("Yeni " + fname, key=f"update_{fname}")
     if st.button("Güncelle"):
