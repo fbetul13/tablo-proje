@@ -117,7 +117,7 @@ table_options = {
             {"name": "explanation", "type": "text"},
             {"name": "parameters", "type": "json"},
             {"name": "user_id", "type": "number"},
-            {"name": "working_place", "type": "text"},
+            {"name": "working_place", "type": "json"},
             {"name": "default_instructions", "type": "text"},
             {"name": "data_instructions", "type": "text"},
             {"name": "file_path", "type": "text"},
@@ -274,31 +274,56 @@ with st.expander("Yeni Kayıt Ekle"):
         form = st.form(key=f"assistant_form_{st.session_state.get('assistant_form_key', 0)}")
         title = form.text_area("title", max_chars=255)
         explanation = form.text_area("explanation")
-        parameters = form.text_area("parameters (JSON)", value="{}")
+        # working_place başlığı ve alt kutucuklar
+        st.markdown("**working_place:**")
+        col1, col2, col3 = form.columns(3)
+        with col1:
+            working_place_embedding_model = form.text_input("embedding_model", max_chars=100, key="add_working_place_embedding_model")
+        with col2:
+            working_place_llm_model = form.text_input("llm_model", max_chars=100, key="add_working_place_llm_model")
+        with col3:
+            working_place_temperature = form.text_input("temperature", max_chars=100, key="add_working_place_temperature")
+        working_place = {
+            "embedding_model": working_place_embedding_model,
+            "llm_model": working_place_llm_model,
+            "temperature": working_place_temperature
+        }
+        # parameters ve trigger_time tek kutu
+        parameters = form.text_area("parameters (JSON)", value="{}", key="add_parameters")
+        # trigger_time başlığı ve alt kutucuklar
+        st.markdown("**trigger_time:**")
+        col4 = form.columns(1)[0]
+        with col4:
+            trigger_time_times = form.text_input("times", max_chars=100, key="add_trigger_time_times")
+        trigger_time = {
+            "times": trigger_time_times
+        }
         # user_id selectbox
         if user_options:
             user_display = form.selectbox("user_id (Users tablosundan)", list(user_options.keys()))
             user_id = user_options[user_display]
         else:
             user_id = form.text_input("user_id")
+        # working_place tek kutu
         working_place = form.text_area("working_place", max_chars=255)
         default_instructions = form.text_area("default_instructions")
         data_instructions = form.text_area("data_instructions")
         file_path = form.text_area("file_path", max_chars=255)
-        trigger_time = form.text_area("trigger_time (JSON)", value="{}")
+        # trigger_time için özel kutucuk
+        # trigger_time için özel kutucuk
         submitted = form.form_submit_button("Ekle")
         if submitted:
             try:
                 add_data = {
                     "title": title,
                     "explanation": explanation,
-                    "parameters": json.loads(parameters) if parameters else {},
+                    "parameters": parameters,
                     "user_id": user_id,
                     "working_place": working_place,
                     "default_instructions": default_instructions,
                     "data_instructions": data_instructions,
                     "file_path": file_path,
-                    "trigger_time": json.loads(trigger_time) if trigger_time else {}
+                    "trigger_time": trigger_time
                 }
                 resp = requests.post(f"{BACKEND_URL}/assistants", json=add_data)
                 if resp.status_code == 200:
@@ -329,7 +354,7 @@ with st.expander("Yeni Kayıt Ekle"):
                     except Exception:
                         form.error('Geçersiz giriş, lütfen alanları kontrol edin.')
             except Exception as e:
-                form.error(str(e))
+                form.error(f"Kayıt eklenemedi: {e}")
     elif table_name == "Auto Prompt":
         # Assistants tablosundan başlıkları çek
         try:
@@ -347,7 +372,20 @@ with st.expander("Yeni Kayıt Ekle"):
             assistant_title = form.text_area("assistant_title", max_chars=100)
             if len(assistant_title) > 100:
                 form.markdown('<div style="color:red; font-size:12px;">En fazla 100 karakter girebilirsiniz.</div>', unsafe_allow_html=True)
-        trigger_time = form.text_area("trigger_time (JSON)", value="{}")
+        # trigger_time başlığı ve alt kutucuklar
+        st.markdown("**trigger_time:**")
+        col4, col5, col6 = form.columns(3)
+        with col4:
+            trigger_time_times = form.text_input("times", max_chars=100, key="add_trigger_time_times")
+        with col5:
+            trigger_time_start_time = form.text_input("start_time", max_chars=100, key="add_trigger_time_start_time")
+        with col6:
+            trigger_time_end_time = form.text_input("end_time", max_chars=100, key="add_trigger_time_end_time")
+        trigger_time = {
+            "times": trigger_time_times,
+            "start_time": trigger_time_start_time,
+            "end_time": trigger_time_end_time
+        }
         python_code = form.text_area("python_code", height=200, help="Buraya Python kodunuzu yazabilirsiniz.")
         mcrisactive = form.selectbox("mcrisactive", ["Evet", "Hayır"]) == "Evet"
         receiver_emails = form.text_area("receiver_emails")
@@ -368,7 +406,7 @@ with st.expander("Yeni Kayıt Ekle"):
                     add_data = {
                         "question": question,
                         "assistant_title": assistant_title,
-                        "trigger_time": json.loads(trigger_time) if trigger_time else {},
+                        "trigger_time": trigger_time,
                         "python_code": python_code,
                         "mcrisactive": mcrisactive,
                         "receiver_emails": receiver_emails
@@ -735,6 +773,65 @@ with st.expander("Kayıt Güncelle"):
             st.success("Güncellenecek asistan yok.")
             update_id = None
             assistant_row = None
+        update_data = {}
+        if assistant_row:
+            update_data['title'] = st.text_area("Yeni title", value=assistant_row.get('title', ''), key="update_title")
+            update_data['explanation'] = st.text_area("Yeni explanation", value=assistant_row.get('explanation', ''), key="update_explanation")
+            # working_place başlığı ve alt kutucuklar
+            st.markdown("**yeni parameters (JSON):**")
+            working_place_val = assistant_row.get('working_place', {}) or {}
+            if isinstance(working_place_val, str):
+                try:
+                    working_place_val = json.loads(working_place_val)
+                except Exception:
+                    working_place_val = {}
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                update_data['working_place_embedding_model'] = st.text_input("embedding_model", value=working_place_val.get('embedding_model', ''), max_chars=100, key="update_working_place_embedding_model")
+            with col2:
+                update_data['working_place_llm_model'] = st.text_input("llm_model", value=working_place_val.get('llm_model', ''), max_chars=100, key="update_working_place_llm_model")
+            with col3:
+                update_data['working_place_temperature'] = st.text_input("temperature", value=working_place_val.get('temperature', ''), max_chars=100, key="update_working_place_temperature")
+            # parameters ve trigger_time tek kutu
+            update_data['parameters'] = st.text_area("Yeni working_place", value=json.dumps(assistant_row.get('parameters', {}), ensure_ascii=False, indent=2) if isinstance(assistant_row.get('parameters', {}), (dict, list)) else (assistant_row.get('parameters', '') or '{}'), key="update_parameters")
+            # trigger_time başlığı ve alt kutucuklar
+            st.markdown("**trigger_time:**")
+            trigger_time_val = assistant_row.get('trigger_time', {}) or {}
+            if isinstance(trigger_time_val, str):
+                try:
+                    trigger_time_val = json.loads(trigger_time_val)
+                except Exception:
+                    trigger_time_val = {}
+            col4 = st.columns(1)[0]
+            with col4:
+                update_data['trigger_time_times'] = st.text_input("times", value=trigger_time_val.get('times', ''), max_chars=100, key="update_trigger_time_times")
+        if st.button("Güncelle", key="update_button_assistants"):
+            try:
+                update_payload = {
+                    "title": update_data.get('title', ''),
+                    "explanation": update_data.get('explanation', ''),
+                    "parameters": json.loads(update_data.get('parameters', '{}')) if update_data.get('parameters', '{}') else {},
+                    "user_id": update_data.get('user_id', ''),
+                    "working_place": {
+                        "embedding_model": update_data.get('working_place_embedding_model', ''),
+                        "llm_model": update_data.get('working_place_llm_model', ''),
+                        "temperature": update_data.get('working_place_temperature', '')
+                    },
+                    "default_instructions": update_data.get('default_instructions', ''),
+                    "data_instructions": update_data.get('data_instructions', ''),
+                    "file_path": update_data.get('file_path', ''),
+                    "trigger_time": {
+                        "times": update_data.get('trigger_time_times', '')
+                    }
+                }
+                resp = requests.put(f"{BACKEND_URL}/assistants/{update_id}", json=update_payload)
+                if resp.status_code == 200:
+                    st.success("Kayıt güncellendi!")
+                    st.rerun()
+                else:
+                    st.error("Kayıt güncellenemedi: " + resp.text)
+            except Exception as e:
+                st.error(f"Kayıt güncellenemedi: {e}")
     elif table_name == "Auto Prompt":
         auto_prompts = requests.get(f"{BACKEND_URL}/auto_prompt").json()
         if auto_prompts:
@@ -776,11 +873,11 @@ with st.expander("Kayıt Güncelle"):
         auto_prompt_row = None
         dbinfo_row = None
     update_data = {}
-    for field in fields:
+    for i, field in enumerate(fields):
         fname = field["name"]
         ftype = field["type"]
-        if fname in ["create_date", "change_date"]:
-            continue  # Bu alanları atla
+        if fname in ["create_date", "change_date", "parameters"]:
+            continue  # Bu alanları atla (parameters için özel kutucuklar var)
         if table_name == "Users" and fname == "role_id":
             if user_row:
                 default_role = next((r for r in roles if r['role_id'] == user_row['role_id']), None)
@@ -796,26 +893,43 @@ with st.expander("Kayıt Güncelle"):
         elif ftype == "bool":
             update_data[fname] = st.selectbox("Yeni " + fname, ["Evet", "Hayır"]) == "Evet"
         elif ftype == "json":
-            update_data[fname] = st.text_area("Yeni " + fname + " (JSON)", value="{}", key="update_json"+fname)
+            # Her tablo için mevcut json değerini varsayılan olarak göster
+            row = None
+            if table_name == "Assistants":
+                row = assistant_row
+            elif table_name == "Auto Prompt":
+                row = auto_prompt_row
+            elif table_name == "Roles":
+                row = role_row
+            elif table_name == "Data Prepare Modules":
+                row = dpm_row
+            elif table_name == "Database Info":
+                row = dbinfo_row
+            if row and fname in row:
+                val = row[fname]
+                val = json.dumps(val, ensure_ascii=False, indent=2) if isinstance(val, (dict, list)) else (val or "{}")
+                update_data[fname] = st.text_area("Yeni " + fname + " (JSON)", value=val, key=f"update_{fname}_{i}")
+            else:
+                update_data[fname] = st.text_area("Yeni " + fname + " (JSON)", value="{}", key=f"update_json{fname}_{i}")
         elif ftype == "number":
             if not (table_name == "Users" and fname == "role_id") and not (table_name == "Roles" and fname == "role_id"):
-                update_data[fname] = st.number_input("Yeni " + fname, step=1, format="%d", key="update_num"+fname)
+                update_data[fname] = st.number_input("Yeni " + fname, step=1, format="%d", key=f"update_num{fname}_{i}")
         else:
             if (table_name == "Users" and user_row and fname in user_row):
-                update_data[fname] = st.text_input("Yeni " + fname, value=user_row[fname], key=f"update_{fname}")
+                update_data[fname] = st.text_input("Yeni " + fname, value=user_row[fname], key=f"update_{fname}_{i}")
             elif (table_name == "Roles" and role_row and fname in role_row):
-                update_data[fname] = st.text_input("Yeni " + fname, value=role_row[fname], key=f"update_{fname}")
+                update_data[fname] = st.text_input("Yeni " + fname, value=role_row[fname], key=f"update_{fname}_{i}")
             elif (table_name == "Assistants" and assistant_row and fname in assistant_row):
-                update_data[fname] = st.text_area("Yeni " + fname, value=assistant_row[fname], key=f"update_{fname}")
+                update_data[fname] = st.text_area("Yeni " + fname, value=assistant_row[fname], key=f"update_{fname}_{i}")
             elif (table_name == "Auto Prompt" and auto_prompt_row and fname in auto_prompt_row):
-                update_data[fname] = st.text_area("Yeni " + fname, value=auto_prompt_row[fname], key=f"update_{fname}")
+                update_data[fname] = st.text_area("Yeni " + fname, value=auto_prompt_row[fname], key=f"update_{fname}_{i}")
             elif (table_name == "Data Prepare Modules" and dpm_row and fname in dpm_row):
-                update_data[fname] = st.text_area("Yeni " + fname, value=dpm_row[fname], key=f"update_{fname}")
+                update_data[fname] = st.text_area("Yeni " + fname, value=dpm_row[fname], key=f"update_{fname}_{i}")
             elif (table_name == "Database Info" and dbinfo_row and fname in dbinfo_row):
-                update_data[fname] = st.text_area("Yeni " + fname, value=dbinfo_row[fname], key=f"update_{fname}")
+                update_data[fname] = st.text_area("Yeni " + fname, value=dbinfo_row[fname], key=f"update_{fname}_{i}")
             else:
-                update_data[fname] = st.text_input("Yeni " + fname, key=f"update_{fname}")
-    if st.button("Güncelle"):
+                update_data[fname] = st.text_input("Yeni " + fname, key=f"update_{fname}_{i}")
+    if st.button("Güncelle", key="update_button_roles"):
         for field in fields:
             if field["name"] in ["create_date", "change_date"]:
                 continue
