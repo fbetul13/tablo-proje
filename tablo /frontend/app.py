@@ -178,31 +178,24 @@ if st.session_state["show_table"]:
                 st.dataframe(df[show_cols])
             elif table_name == "Data Prepare Modules":
                 df = pd.DataFrame(data)
-                show_cols = ['module_id', 'module_name', 'description', 'user_id', 'asistan_id', 'database_id', 'csv_database_id', 'query', 'working_platform', 'query_name', 'db_schema', 'documents_id', 'csv_db_schema', 'data_prep_code']
+                show_cols = ['module_id', 'query', 'user_id', 'asistan_id', 'database_id', 'csv_database_id', 'query_name', 'working_platform', 'db_schema', 'documents_id', 'csv_db_schema', 'data_prep_code']
                 show_cols = [c for c in show_cols if c in df.columns]
-                for idx, row in df.iterrows():
-                    st.write(f"**Module ID:** {row.get('module_id','')}")
-                    st.write(f"**Module Name:** {row.get('module_name','')}")
-                    st.write(f"**Description:** {row.get('description','')}")
-                    st.write(f"**User ID:** {row.get('user_id','')}")
-                    st.write(f"**Asistan ID:** {row.get('asistan_id','')}")
-                    st.write(f"**Database ID:** {row.get('database_id','')}")
-                    st.write(f"**CSV Database ID:** {row.get('csv_database_id','')}")
-                    st.write(f"**Query:** {row.get('query','')}")
-                    st.write(f"**Working Platform:** {row.get('working_platform','')}")
-                    st.write(f"**Query Name:** {row.get('query_name','')}")
-                    st.write(f"**DB Schema:** {row.get('db_schema','')}")
-                    st.write(f"**Documents ID:** {row.get('documents_id','')}")
-                    st.write(f"**CSV DB Schema:** {row.get('csv_db_schema','')}")
-                    st.code(row.get('data_prep_code',''), language='python')
-                    st.markdown('---')
+                st.dataframe(df[show_cols])
+            elif table_name == "Roles":
+                df = pd.DataFrame(data)
+                show_cols = ['role_id', 'role_name', 'permissions', 'admin_or_not']
+                show_cols = [c for c in show_cols if c in df.columns]
+                st.dataframe(df[show_cols])
+            elif table_name == "Database Info":
+                df = pd.DataFrame(data)
+                show_cols = ['database_id', 'database_ip', 'database_port', 'database_user', 'database_password', 'database_type', 'database_name', 'user_id']
+                show_cols = [c for c in show_cols if c in df.columns]
+                st.dataframe(df[show_cols])
             else:
                 df = pd.DataFrame(data)
                 st.dataframe(df)
-        elif isinstance(data, list):
-            st.info("Tabloda veri yok.")
         else:
-            st.error(str(data))
+            st.info("Tabloda veri yok.")
     except Exception as e:
         st.error(f"Veri alınamadı: {e}")
 
@@ -277,23 +270,21 @@ with st.expander("Yeni Kayıt Ekle"):
                     form.error(str(e))
     elif table_name == "Assistants":
         users = get_users()
-        user_options = {f"{u['name']} {u['surname']}": u['id'] for u in users} if users else {}
+        user_options = {f"{u['id']} - {u['name']} {u['surname']} ({u['e_mail']})": u['id'] for u in users} if users else {}
         form = st.form(key=f"assistant_form_{st.session_state.get('assistant_form_key', 0)}")
         title = form.text_area("title", max_chars=255)
-        # Karakter sayacı kaldırıldı
         explanation = form.text_area("explanation")
         parameters = form.text_area("parameters (JSON)", value="{}")
+        # user_id selectbox
         if user_options:
-            user_display = form.selectbox("Kişi (Users tablosundan)", list(user_options.keys()))
+            user_display = form.selectbox("user_id (Users tablosundan)", list(user_options.keys()))
             user_id = user_options[user_display]
         else:
-            user_id = None
+            user_id = form.text_input("user_id")
         working_place = form.text_area("working_place", max_chars=255)
-        # Karakter sayacı kaldırıldı
         default_instructions = form.text_area("default_instructions")
         data_instructions = form.text_area("data_instructions")
         file_path = form.text_area("file_path", max_chars=255)
-        # Karakter sayacı kaldırıldı
         trigger_time = form.text_area("trigger_time (JSON)", value="{}")
         submitted = form.form_submit_button("Ekle")
         if submitted:
@@ -420,8 +411,8 @@ with st.expander("Yeni Kayıt Ekle"):
         assistant_options = {f"{a['asistan_id']} - {a['title']}": a['asistan_id'] for a in assistants} if assistants else {}
         database_options = {f"{d['database_id']} - {d['database_name']} ({d['database_ip']}:{d['database_port']})": d['database_id'] for d in databases} if databases else {}
         form = st.form(key=f"dpm_form_{st.session_state.get('dpm_form_key', 0)}")
-        module_name = form.text_area("module_name")
-        description = form.text_area("description")
+        module_id = form.number_input("module_id", min_value=0, step=1, format="%d")
+        query = form.text_area("query")
         user_id = form.selectbox("user_id (Users tablosundan)", list(user_options.keys())) if user_options else form.text_input("user_id")
         asistan_id = form.selectbox("asistan_id (Assistants tablosundan)", list(assistant_options.keys())) if assistant_options else form.text_input("asistan_id")
         database_id = form.selectbox("database_id (Database Info tablosundan)", list(database_options.keys())) if database_options else form.text_input("database_id")
@@ -440,8 +431,8 @@ with st.expander("Yeni Kayıt Ekle"):
             else:
                 try:
                     add_data = {
-                        "module_name": module_name,
-                        "description": description,
+                        "module_id": module_id,
+                        "query": query,
                         "user_id": user_options[user_id] if user_options else user_id,
                         "asistan_id": assistant_options[asistan_id] if assistant_options else asistan_id,
                         "database_id": database_options[database_id] if database_options else database_id,
@@ -664,7 +655,7 @@ with st.expander("Kayıt Sil"):
     elif table_name == "Data Prepare Modules":
         dpm_modules = requests.get(f"{BACKEND_URL}/data_prepare_modules").json()
         if dpm_modules:
-            dpm_options = {f"{dpm['module_id']} - {dpm['module_name']}": dpm['module_id'] for dpm in dpm_modules}
+            dpm_options = {f"{dpm['module_id']}": dpm['module_id'] for dpm in dpm_modules}
             selected = st.selectbox("Silinecek Data Prepare Module", list(dpm_options.keys()), key="delete_dpm_select")
             delete_id = dpm_options[selected]
         else:
@@ -686,9 +677,12 @@ with st.expander("Kayıt Sil"):
             try:
                 resp = requests.delete(f"{BACKEND_URL}/{endpoint}/{delete_id}")
                 if resp.status_code == 200:
-                    st.success("Kayıt silindi!")
-                    if table_name == "Roles":
+                    if table_name == "Users":
+                        st.success("Kişi silindi!")
+                    elif table_name == "Roles":
                         st.markdown('<span style="color:green; font-size:16px;">Kayıt silindi.</span>', unsafe_allow_html=True)
+                    else:
+                        st.success("Kayıt silindi!")
                     st.rerun()
                 else:
                     try:
@@ -755,7 +749,7 @@ with st.expander("Kayıt Güncelle"):
     elif table_name == "Data Prepare Modules":
         dpm_modules = requests.get(f"{BACKEND_URL}/data_prepare_modules").json()
         if dpm_modules:
-            dpm_options = {f"{dpm['module_id']} - {dpm['module_name']}": dpm['module_id'] for dpm in dpm_modules}
+            dpm_options = {f"{dpm['module_id']}": dpm['module_id'] for dpm in dpm_modules}
             selected = st.selectbox("Güncellenecek Data Prepare Module", list(dpm_options.keys()), key="update_dpm_select")
             update_id = dpm_options[selected]
             dpm_row = next((dpm for dpm in dpm_modules if dpm['module_id'] == update_id), None)
