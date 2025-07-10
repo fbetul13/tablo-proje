@@ -217,8 +217,9 @@ with st.expander("Yeni Kayıt Ekle"):
         form = st.form(key=f"role_form_{st.session_state['role_form_key']}")
         role_id = form.number_input("role_id", min_value=0, step=1, format="%d")
         role_name = form.text_input("role_name", max_chars=100)
-        # Karakter sayacı kaldırıldı
-        permissions = form.text_area("permissions (JSON)", value="{}")
+        # permissions başlığı ve kutucuk
+        form.markdown("**permissions (JSON):**")
+        permissions = form.text_input("all", value="{}", key="add_permissions_all")
         admin_or_not = form.selectbox("admin_or_not", ["Evet", "Hayır"]) == "Evet"
         submitted = form.form_submit_button("Ekle")
         add_data = {
@@ -274,24 +275,24 @@ with st.expander("Yeni Kayıt Ekle"):
         form = st.form(key=f"assistant_form_{st.session_state.get('assistant_form_key', 0)}")
         title = form.text_area("title", max_chars=255)
         explanation = form.text_area("explanation")
-        # working_place başlığı ve alt kutucuklar
-        st.markdown("**working_place:**")
-        col1, col2, col3 = form.columns(3)
-        with col1:
-            working_place_embedding_model = form.text_input("embedding_model", max_chars=100, key="add_working_place_embedding_model")
-        with col2:
-            working_place_llm_model = form.text_input("llm_model", max_chars=100, key="add_working_place_llm_model")
-        with col3:
-            working_place_temperature = form.text_input("temperature", max_chars=100, key="add_working_place_temperature")
-        working_place = {
-            "embedding_model": working_place_embedding_model,
-            "llm_model": working_place_llm_model,
-            "temperature": working_place_temperature
+        # working_place başlığı ve tek kutucuk
+        # (Bu kısmı tamamen kaldırıyorum, sadece diğer working_place alanı kalacak)
+        # parameters başlığı ve alt kutucuklar
+        form.markdown("**parameters (JSON):**")
+        colp1, colp2, colp3 = form.columns(3)
+        with colp1:
+            parameters_embedding_model = form.text_input("embedding_model", max_chars=100, key="add_parameters_embedding_model")
+        with colp2:
+            parameters_llm_model = form.text_input("llm_model", max_chars=100, key="add_parameters_llm_model")
+        with colp3:
+            parameters_temperature = form.text_input("temperature", max_chars=100, key="add_parameters_temperature")
+        parameters = {
+            "embedding_model": parameters_embedding_model,
+            "llm_model": parameters_llm_model,
+            "temperature": parameters_temperature
         }
-        # parameters ve trigger_time tek kutu
-        parameters = form.text_area("parameters (JSON)", value="{}", key="add_parameters")
         # trigger_time başlığı ve alt kutucuklar
-        st.markdown("**trigger_time:**")
+        form.markdown("**trigger_time(JSON):**")
         col4 = form.columns(1)[0]
         with col4:
             trigger_time_times = form.text_input("times", max_chars=100, key="add_trigger_time_times")
@@ -309,8 +310,6 @@ with st.expander("Yeni Kayıt Ekle"):
         default_instructions = form.text_area("default_instructions")
         data_instructions = form.text_area("data_instructions")
         file_path = form.text_area("file_path", max_chars=255)
-        # trigger_time için özel kutucuk
-        # trigger_time için özel kutucuk
         submitted = form.form_submit_button("Ekle")
         if submitted:
             try:
@@ -779,23 +778,22 @@ with st.expander("Kayıt Güncelle"):
             update_data['explanation'] = st.text_area("Yeni explanation", value=assistant_row.get('explanation', ''), key="update_explanation")
             # working_place başlığı ve alt kutucuklar
             st.markdown("**yeni parameters (JSON):**")
-            working_place_val = assistant_row.get('working_place', {}) or {}
-            if isinstance(working_place_val, str):
+            # parameters içindeki değerleri kutucuklara dağıt
+            parameters_val = assistant_row.get('parameters', {}) or {}
+            if isinstance(parameters_val, str):
                 try:
-                    working_place_val = json.loads(working_place_val)
+                    parameters_val = json.loads(parameters_val)
                 except Exception:
-                    working_place_val = {}
+                    parameters_val = {}
             col1, col2, col3 = st.columns(3)
             with col1:
-                update_data['working_place_embedding_model'] = st.text_input("embedding_model", value=working_place_val.get('embedding_model', ''), max_chars=100, key="update_working_place_embedding_model")
+                update_data['parameters_embedding_model'] = st.text_input("embedding_model", value=parameters_val.get('embedding_model', ''), max_chars=100, key="update_parameters_embedding_model")
             with col2:
-                update_data['working_place_llm_model'] = st.text_input("llm_model", value=working_place_val.get('llm_model', ''), max_chars=100, key="update_working_place_llm_model")
+                update_data['parameters_llm_model'] = st.text_input("llm_model", value=parameters_val.get('llm_model', ''), max_chars=100, key="update_parameters_llm_model")
             with col3:
-                update_data['working_place_temperature'] = st.text_input("temperature", value=working_place_val.get('temperature', ''), max_chars=100, key="update_working_place_temperature")
-            # parameters ve trigger_time tek kutu
-            update_data['parameters'] = st.text_area("Yeni working_place", value=json.dumps(assistant_row.get('parameters', {}), ensure_ascii=False, indent=2) if isinstance(assistant_row.get('parameters', {}), (dict, list)) else (assistant_row.get('parameters', '') or '{}'), key="update_parameters")
+                update_data['parameters_temperature'] = st.text_input("temperature", value=parameters_val.get('temperature', ''), max_chars=100, key="update_parameters_temperature")
             # trigger_time başlığı ve alt kutucuklar
-            st.markdown("**trigger_time:**")
+            st.markdown("**trigger_time(JSON):**")
             trigger_time_val = assistant_row.get('trigger_time', {}) or {}
             if isinstance(trigger_time_val, str):
                 try:
@@ -805,6 +803,8 @@ with st.expander("Kayıt Güncelle"):
             col4 = st.columns(1)[0]
             with col4:
                 update_data['trigger_time_times'] = st.text_input("times", value=trigger_time_val.get('times', ''), max_chars=100, key="update_trigger_time_times")
+        # 'Yeni trigger_time (JSON)' kutucuğunu ve başlığını kaldırdım.
+        # Diğer alanlara dokunmadım.
         if st.button("Güncelle", key="update_button_assistants"):
             try:
                 update_payload = {
@@ -873,11 +873,24 @@ with st.expander("Kayıt Güncelle"):
         auto_prompt_row = None
         dbinfo_row = None
     update_data = {}
+    permissions_all_val = ""
+    if table_name == "Roles" and role_row and "permissions" in role_row:
+        val = role_row["permissions"]
+        if isinstance(val, str):
+            try:
+                permissions_json = json.loads(val)
+            except Exception:
+                permissions_json = {}
+        else:
+            permissions_json = val or {}
+        permissions_all_val = str(permissions_json.get("all", ""))
+        st.markdown("**permissions (JSON):**")
+        update_data['permissions_all'] = st.text_input("all", value=permissions_all_val, key="update_permissions_all")
     for i, field in enumerate(fields):
         fname = field["name"]
         ftype = field["type"]
-        if fname in ["create_date", "change_date", "parameters"]:
-            continue  # Bu alanları atla (parameters için özel kutucuklar var)
+        if fname in ["create_date", "change_date", "parameters", "trigger_time"]:
+            continue  # Bu alanları atla (parameters ve trigger_time için özel kutucuklar var)
         if table_name == "Users" and fname == "role_id":
             if user_row:
                 default_role = next((r for r in roles if r['role_id'] == user_row['role_id']), None)
@@ -893,6 +906,9 @@ with st.expander("Kayıt Güncelle"):
         elif ftype == "bool":
             update_data[fname] = st.selectbox("Yeni " + fname, ["Evet", "Hayır"]) == "Evet"
         elif ftype == "json":
+            if table_name == "Roles" and fname == "permissions":
+                # permissions için inputu yukarıda oluşturduk
+                continue
             # Her tablo için mevcut json değerini varsayılan olarak göster
             row = None
             if table_name == "Assistants":
@@ -914,6 +930,17 @@ with st.expander("Kayıt Güncelle"):
         elif ftype == "number":
             if not (table_name == "Users" and fname == "role_id") and not (table_name == "Roles" and fname == "role_id"):
                 update_data[fname] = st.number_input("Yeni " + fname, step=1, format="%d", key=f"update_num{fname}_{i}")
+        elif table_name == "Roles" and fname == "permissions":
+            val = row[fname] if row and fname in row else "{}"
+            val = json.dumps(val, ensure_ascii=False, indent=2) if isinstance(val, (dict, list)) else (val or "{}")
+            try:
+                permissions_json = json.loads(val)
+            except Exception:
+                permissions_json = {}
+            all_val = permissions_json.get("all", "")
+            st.markdown("**permissions(JSON):**")
+            st.markdown("all:")
+            update_data['permissions_all'] = st.text_input("all", value=all_val, key=f"update_permissions_all_{i}")
         else:
             if (table_name == "Users" and user_row and fname in user_row):
                 update_data[fname] = st.text_input("Yeni " + fname, value=user_row[fname], key=f"update_{fname}_{i}")
@@ -934,10 +961,13 @@ with st.expander("Kayıt Güncelle"):
             if field["name"] in ["create_date", "change_date"]:
                 continue
             if field["type"] == "json":
-                try:
-                    update_data[field["name"]] = json.loads(update_data[field["name"]]) if update_data[field["name"]] else {}
-                except Exception:
-                    update_data[field["name"]] = {}
+                if table_name == "Roles" and field["name"] == "permissions":
+                    update_data[field["name"]] = {"all": update_data.get("permissions_all", "")}
+                else:
+                    try:
+                        update_data[field["name"]] = json.loads(update_data[field["name"]]) if update_data[field["name"]] else {}
+                    except Exception:
+                        update_data[field["name"]] = {}
         if table_name == "Users":
             update_data['role_id'] = role_name_to_id.get(update_data.pop('role_name'), None)
         if update_id:
